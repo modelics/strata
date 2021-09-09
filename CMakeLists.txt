@@ -60,37 +60,57 @@ set(BOOST_INC ${LIB_EXT}/boost_1_76_0_selected)
 
 # ------ AmosBessel ------
 
+# set(AMOSBESSEL_ROOT ${BUILD_EXT}/AmosBessel)
+# ExternalProject_Add(external_amosbessel
+#     URL ${LIB_EXT}/AmosBessel.tar.gz
+#     URL_HASH SHA256=a3b7e2d7a3bc2cab5e5a69e1790c2ca72b898d6a561255f56e154927751ffae5
+#     PREFIX ${AMOSBESSEL_ROOT}
+#     SOURCE_DIR ${LIB_EXT}/AmosBessel
+#     DOWNLOAD_DIR ${LIB_EXT}
+#     BUILD_IN_SOURCE ON
+#     CONFIGURE_COMMAND ""
+#     BUILD_COMMAND make
+#     INSTALL_COMMAND ""
+# )
+
+# # execute_process(
+# #         COMMAND ${CMAKE_COMMAND} -E tar "xzf" ${LIB_EXT}/AmosBessel.tar.gz
+# #         WORKING_DIRECTORY ${LIB_EXT}
+# # )
+# # add_library(amosbessel SHARED ${LIB_EXT}/AmosBessel/zbsubs.f ${LIB_EXT}/AmosBessel/machcon.f ${LIB_EXT}/AmosBessel/libAmosBessel.cc)
+# # # target_link_libraries(amosbessel ${OPENBLAS_LIB} ${AmosBessel_LIB} ${YAML_LIB})
+# # target_include_directories(amosbessel PRIVATE ${LIB_EXT}/AmosBessel)
+
+# set(AmosBessel_LIB
+#         "${LIB_EXT}/AmosBessel/${CMAKE_STATIC_LIBRARY_PREFIX}AmosBessel${CMAKE_STATIC_LIBRARY_SUFFIX}")
+# # set(AmosBessel_LIB
+#         # "${LIB_EXT}/AmosBessel/${CMAKE_SHARED_LIBRARY_PREFIX}AmosBessel${CMAKE_SHARED_LIBRARY_SUFFIX}")
+# set(AmosBessel_INC "${LIB_EXT}/AmosBessel")
+
+# # add_library(amosbessel STATIC IMPORTED)
+# # set_property(TARGET amosbessel PROPERTY INTERFACE_INCLUDE_DIRECTORIES ${LIB_EXT}/AmosBessel)
+# # set_property(TARGET amosbessel PROPERTY IMPORTED_LOCATION ${LIB_EXT}/AmosBessel/${CMAKE_SHARED_LIBRARY_PREFIX}AmosBessel${CMAKE_SHARED_LIBRARY_SUFFIX})
+# # set_target_properties(amosbessel PROPERTIES IMPORTED_LINK_INTERFACE_LIBRARIES "gfortran")
+
+# ------ AmosBessel ------
+
 set(AMOSBESSEL_ROOT ${BUILD_EXT}/AmosBessel)
 ExternalProject_Add(external_amosbessel
     URL ${LIB_EXT}/AmosBessel.tar.gz
-    URL_HASH SHA256=a3b7e2d7a3bc2cab5e5a69e1790c2ca72b898d6a561255f56e154927751ffae5
+    # URL_HASH SHA256=a3b7e2d7a3bc2cab5e5a69e1790c2ca72b898d6a561255f56e154927751ffae5
     PREFIX ${AMOSBESSEL_ROOT}
     SOURCE_DIR ${LIB_EXT}/AmosBessel
-    DOWNLOAD_DIR ${LIB_EXT}
-    BUILD_IN_SOURCE ON
-    CONFIGURE_COMMAND ""
-    BUILD_COMMAND make
-    INSTALL_COMMAND ""
+    # DOWNLOAD_DIR ${LIB_EXT}
+    # BUILD_IN_SOURCE ON
+    # CONFIGURE_COMMAND cmake
+    # BUILD_COMMAND make
+    # INSTALL_COMMAND ""
+    CMAKE_ARGS -DCMAKE_INSTALL_PREFIX=${LIB_EXT}
 )
 
-# execute_process(
-#         COMMAND ${CMAKE_COMMAND} -E tar "xzf" ${LIB_EXT}/AmosBessel.tar.gz
-#         WORKING_DIRECTORY ${LIB_EXT}
-# )
-# add_library(amosbessel SHARED ${LIB_EXT}/AmosBessel/zbsubs.f ${LIB_EXT}/AmosBessel/machcon.f ${LIB_EXT}/AmosBessel/libAmosBessel.cc)
-# # target_link_libraries(amosbessel ${OPENBLAS_LIB} ${AmosBessel_LIB} ${YAML_LIB})
-# target_include_directories(amosbessel PRIVATE ${LIB_EXT}/AmosBessel)
-
 set(AmosBessel_LIB
-        "${LIB_EXT}/AmosBessel/${CMAKE_STATIC_LIBRARY_PREFIX}AmosBessel${CMAKE_STATIC_LIBRARY_SUFFIX}")
-# set(AmosBessel_LIB
-        # "${LIB_EXT}/AmosBessel/${CMAKE_SHARED_LIBRARY_PREFIX}AmosBessel${CMAKE_SHARED_LIBRARY_SUFFIX}")
-set(AmosBessel_INC "${LIB_EXT}/AmosBessel")
-
-# add_library(amosbessel STATIC IMPORTED)
-# set_property(TARGET amosbessel PROPERTY INTERFACE_INCLUDE_DIRECTORIES ${LIB_EXT}/AmosBessel)
-# set_property(TARGET amosbessel PROPERTY IMPORTED_LOCATION ${LIB_EXT}/AmosBessel/${CMAKE_SHARED_LIBRARY_PREFIX}AmosBessel${CMAKE_SHARED_LIBRARY_SUFFIX})
-# set_target_properties(amosbessel PROPERTIES IMPORTED_LINK_INTERFACE_LIBRARIES "gfortran")
+        "${LIB_EXT}/lib/${CMAKE_SHARED_LIBRARY_PREFIX}AmosBessel${CMAKE_SHARED_LIBRARY_SUFFIX}")
+set(AmosBessel_INC "${LIB_EXT}/include/AmosBessel")
 
 # ------ yaml-cpp 0.6.3 ------
 
@@ -104,7 +124,7 @@ ExternalProject_Add(external_yaml_cpp
 
 set(YAML_LIB
 "${LIB_EXT}/lib/${CMAKE_SHARED_LIBRARY_PREFIX}yaml-cpp${CMAKE_SHARED_LIBRARY_SUFFIX}")
-set(YAML_INC "${LIB_EXT}/include")
+set(YAML_INC "${LIB_EXT}/include/yaml-cpp")
 
 
 # ====== Strata ======
@@ -141,7 +161,7 @@ SET(MGF_SRC
     ${CMAKE_CURRENT_SOURCE_DIR}/src/coordinate_system.cpp
 )
 
-add_library(strata STATIC ${MGF_SRC})
+add_library(strata SHARED ${MGF_SRC})
 target_link_libraries(strata ${OPENBLAS_LIB} ${AmosBessel_LIB} ${YAML_LIB})
 target_include_directories(strata PRIVATE ${INCLUDE_DIR})
 add_dependencies(strata external_amosbessel external_yaml_cpp)
