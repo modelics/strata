@@ -1,0 +1,154 @@
+cmake_minimum_required(VERSION 3.10.2)
+
+include(ExternalProject)
+project(Strata)
+
+set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
+
+ENABLE_LANGUAGE(C)
+ENABLE_LANGUAGE(CXX)
+ENABLE_LANGUAGE(Fortran)
+
+# set(CMAKE_CXX_STANDARD 11)
+
+
+# ====== External libraries ======
+
+set(LIB_EXT ${CMAKE_CURRENT_SOURCE_DIR}/external)
+set(BUILD_EXT ${LIB_EXT}/builds)
+
+set(WITH_OPENBLAS_INC "" CACHE PATH "Specify the path to an existing OpenBLAS header location. If not specified, OpenBlas will be downloaded and installed.")
+set(WITH_OPENBLAS_LIB "" CACHE PATH "Specify the path to an existing OpenBLAS static library location. If not specified, OpenBlas will be downloaded and installed.")
+set(WITH_BOOST_DIR "" CACHE PATH "Specify the path to an existing Boost installation. If not specified, Boost will be downloaded and installed.")
+
+# ------ OpenBLAS ------
+
+set(BLA_VENDOR OpenBLAS)
+if ((NOT WITH_OPENBLAS_INC STREQUAL "") AND
+    (NOT WITH_OPENBLAS_LIB STREQUAL ""))
+    set(OPENBLAS_LIB
+        "${WITH_OPENBLAS_LIB}/${CMAKE_SHARED_LIBRARY_PREFIX}openblas${CMAKE_SHARED_LIBRARY_SUFFIX}")
+    set(OPENBLAS_INC "${WITH_OPENBLAS_INC}")
+else()
+    message(STATUS "Could NOT find OpenBLAS")
+    set(OPENBLAS_ROOT ${BUILD_EXT}/openblas)
+    ExternalProject_Add(external_openblas
+        URL https://github.com/xianyi/OpenBLAS/releases/download/v0.3.15/OpenBLAS-0.3.15.tar.gz
+        URL_HASH SHA256=30a99dec977594b387a17f49904523e6bc8dd88bd247266e83485803759e4bbe
+        PREFIX ${OPENBLAS_ROOT}
+        # SOURCE_DIR ${LIB_EXT}/OpenBLAS-0.3.15
+        # DOWNLOAD_DIR ${LIB_EXT}
+        BUILD_IN_SOURCE ON
+        CONFIGURE_COMMAND ""
+        BUILD_COMMAND make
+        INSTALL_COMMAND make PREFIX=${LIB_EXT} install
+    )
+    set(OPENBLAS_LIB
+        "${LIB_EXT}/lib/${CMAKE_SHARED_LIBRARY_PREFIX}openblas${CMAKE_SHARED_LIBRARY_SUFFIX}")
+    set(OPENBLAS_INC "${LIB_EXT}/include")
+endif()
+
+# ------ Boost ------
+
+# ./bcp math/quadrature math/special_functions/bessel.hpp ../../../../../../../boost_1_76_0_selected --boost=../../../../../../../boost_1_76_0
+
+execute_process(
+        COMMAND ${CMAKE_COMMAND} -E tar "xzf" ${LIB_EXT}/boost_1_76_0_selected.tar.gz
+        WORKING_DIRECTORY ${LIB_EXT}
+)
+set(BOOST_INC ${LIB_EXT}/boost_1_76_0_selected)
+
+# ------ AmosBessel ------
+
+set(AMOSBESSEL_ROOT ${BUILD_EXT}/AmosBessel)
+ExternalProject_Add(external_amosbessel
+    URL ${LIB_EXT}/AmosBessel.tar.gz
+    URL_HASH SHA256=a3b7e2d7a3bc2cab5e5a69e1790c2ca72b898d6a561255f56e154927751ffae5
+    PREFIX ${AMOSBESSEL_ROOT}
+    SOURCE_DIR ${LIB_EXT}/AmosBessel
+    DOWNLOAD_DIR ${LIB_EXT}
+    BUILD_IN_SOURCE ON
+    CONFIGURE_COMMAND ""
+    BUILD_COMMAND make
+    INSTALL_COMMAND ""
+)
+
+# execute_process(
+#         COMMAND ${CMAKE_COMMAND} -E tar "xzf" ${LIB_EXT}/AmosBessel.tar.gz
+#         WORKING_DIRECTORY ${LIB_EXT}
+# )
+# add_library(amosbessel SHARED ${LIB_EXT}/AmosBessel/zbsubs.f ${LIB_EXT}/AmosBessel/machcon.f ${LIB_EXT}/AmosBessel/libAmosBessel.cc)
+# # target_link_libraries(amosbessel ${OPENBLAS_LIB} ${AmosBessel_LIB} ${YAML_LIB})
+# target_include_directories(amosbessel PRIVATE ${LIB_EXT}/AmosBessel)
+
+set(AmosBessel_LIB
+        "${LIB_EXT}/AmosBessel/${CMAKE_STATIC_LIBRARY_PREFIX}AmosBessel${CMAKE_STATIC_LIBRARY_SUFFIX}")
+# set(AmosBessel_LIB
+        # "${LIB_EXT}/AmosBessel/${CMAKE_SHARED_LIBRARY_PREFIX}AmosBessel${CMAKE_SHARED_LIBRARY_SUFFIX}")
+set(AmosBessel_INC "${LIB_EXT}/AmosBessel")
+
+# add_library(amosbessel STATIC IMPORTED)
+# set_property(TARGET amosbessel PROPERTY INTERFACE_INCLUDE_DIRECTORIES ${LIB_EXT}/AmosBessel)
+# set_property(TARGET amosbessel PROPERTY IMPORTED_LOCATION ${LIB_EXT}/AmosBessel/${CMAKE_SHARED_LIBRARY_PREFIX}AmosBessel${CMAKE_SHARED_LIBRARY_SUFFIX})
+# set_target_properties(amosbessel PROPERTIES IMPORTED_LINK_INTERFACE_LIBRARIES "gfortran")
+
+# ------ yaml-cpp 0.6.3 ------
+
+set(YAML_CPP_ROOT ${BUILD_EXT}/yaml-cpp)
+ExternalProject_Add(external_yaml_cpp
+    GIT_REPOSITORY https://github.com/jbeder/yaml-cpp.git
+    GIT_TAG 9a3624205e8774953ef18f57067b3426c1c5ada6
+    PREFIX ${YAML_CPP_ROOT}
+    CMAKE_ARGS -DYAML_BUILD_SHARED_LIBS=ON -DCMAKE_INSTALL_PREFIX=${LIB_EXT}
+)
+
+set(YAML_LIB
+"${LIB_EXT}/lib/${CMAKE_SHARED_LIBRARY_PREFIX}yaml-cpp${CMAKE_SHARED_LIBRARY_SUFFIX}")
+set(YAML_INC "${LIB_EXT}/include")
+
+
+# ====== Strata ======
+
+set(EXECUTABLE_OUTPUT_PATH ${CMAKE_BINARY_DIR})
+
+add_definitions(-march=native)
+string(REPLACE "-O2" "-O3" CMAKE_CXX_FLAGS_RELWITHDEBINFO "${CMAKE_CXX_FLAGS_RELWITHDEBINFO}")
+
+# Find OpenMP and update compilation flags accordingly
+find_package(OpenMP)
+if (OPENMP_FOUND)
+    set (CMAKE_C_FLAGS "${CMAKE_C_FLAGS} ${OpenMP_C_FLAGS}")
+    set (CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${OpenMP_CXX_FLAGS}")
+    set (CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} ${OpenMP_EXE_LINKER_FLAGS}")
+endif()
+
+SET(INCLUDE_DIR
+    ${OPENBLAS_INC}
+    ${BOOST_INC}
+    ${AmosBessel_INC}
+    ${YAML_INC}
+    ${CMAKE_CURRENT_SOURCE_DIR}/inc
+)
+
+SET(MGF_SRC
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/DCIM.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/layers.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/MGF.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/quasistatic_MGF.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/spectral_MGF.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/lapacke_interface.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/fileIO.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/coordinate_system.cpp
+)
+
+add_library(strata STATIC ${MGF_SRC})
+target_link_libraries(strata ${OPENBLAS_LIB} ${AmosBessel_LIB} ${YAML_LIB})
+target_include_directories(strata PRIVATE ${INCLUDE_DIR})
+add_dependencies(strata external_amosbessel external_yaml_cpp)
+if ((WITH_OPENBLAS_INC STREQUAL "") OR
+    (WITH_OPENBLAS_LIB STREQUAL ""))
+    add_dependencies(strata external_openblas)
+endif()
+
+
+

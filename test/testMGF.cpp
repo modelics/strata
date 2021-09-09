@@ -1,0 +1,165 @@
+
+
+#include <cmath>
+#include <complex>
+#include <string>
+#include <fstream>
+#include <iostream>
+#include <vector>
+#include <stdexcept>
+
+#include "MGF.hpp"
+
+
+void TestMGF(std::string &tech_file)
+{
+
+	std::cout << "===========================" << std::endl;
+	std::cout << "TestMGF()" << std::endl;
+	std::cout << "===========================" << std::endl;
+
+
+	// ====== Stackup ======
+
+	// Create a layer management object and parse the layer file
+	LayerManager lm;
+	lm.ProcessTechFile(tech_file, 1.0e-9);
+
+	// Set the analysis frequency and wave number
+	double f = 1.0e9;
+	double omega = 2.0*M_PI*f;
+
+	// Some useful constants are provided via the Strata namespace
+	std::complex<double> k0 = omega*std::sqrt(strata::eps0*strata::mu0);
+	std::complex<double> lambda0 = 2.0*M_PI/k0;
+
+	// Precompute frequency-dependent layer data
+	lm.ProcessLayers(f);
+
+	// Print layer data to the terminal for verification
+	lm.PrintLayerData(NULL, true);
+
+
+	// ====== Set up the source and observation points ======
+
+	// Set the source and observation (obs) points
+	// For this example, we'll sweep the observation point along the x axis from 10^{-4} wavelengths to 10 wavelengths away from the source point
+	
+	double x_src = 0.0, y_src = 0.0, z_src = 0.4e-3;
+	double y_obs = 0.0, z_obs = 1.4e-3;
+	
+	int Nx = 500; // Number of points in the sweep
+	double x_obs_min = std::abs(1.0e-4*lambda0);
+	double x_obs_max = std::abs(1.0e1*lambda0);
+		
+	// We can use the Matlab-like linspace or logspace functions to create linearly- or logarithmically-spaced vectors points, provided via the Strata namespace
+	std::vector<double> x_vec;
+	strata::logspace(std::log10(x_obs_min), std::log10(x_obs_max), Nx, x_vec);
+
+
+	// ====== Initialize the MGF class ======
+
+	// In this example, we'll compute the MGF using straightforward numerical integration
+	
+	// This class stores all the settings we want to use
+	MGF_settings s;
+	
+	// This class is the "engine" which will compute the MGF
+	MGF mgf;
+
+	// Tell the class we want to use the numerical integration method
+	s.method = MGF_INTEGRATE;
+
+	// Initialize the class with the given stackup and chosen settings
+	mgf.Initialize(f, lm, s);
+
+	// The MGF class needs to know which layers we're working with, in order to perform some precomputations which may save time later on.
+	// The working source and observation layers can be found with the FindLayer() method of the layer manager.
+	// In a realistic MoM setting, if we are looping through the points on the mesh of an object, and we know in which layer that object resides, we can just set the source and observation layers once for each pair of source and observation objects.
+	int i = lm.FindLayer(z_src);
+	int m = lm.FindLayer(z_obs);
+	mgf.SetLayers(i, m); // Source first, observation second
+
+
+	// ====== Compute the MGF for each observation point ======
+	
+	// Create an output file where the MGF will be exported for post-processing
+	std::ofstream outfile("MGFdata.txt");
+
+	// For post-processing, we'll store the frequency and positions along the z axis in the header
+	outfile << "Frequency: " << f << " Hz" << std::endl;
+	outfile << "z_src: " << z_src << " m" << std::endl;
+	outfile << "z_obs: " << z_obs << " m" << std::endl;
+	outfile << "\nrho Gxx Gxy Gxz Gyz Gyy Gyz Gzx Gzy Gzz Gphi" << std::endl;
+
+	for (int ii = 0; ii < Nx; ii++)
+	{
+
+		double x_obs = x_vec[ii];
+
+		// In the x and y directions, the MGF only depends on the separation between source and observation points, rather than the actual coordinates
+		double x_diff = x_obs - x_src;
+		double y_diff = y_obs - y_src;
+
+		// The 3x3 dyadic MGF has 9 components which will be stored in a C++ standard array, in row major order.
+		// In addition, there is a scalar component which is just a complex number.
+		std::array<std::complex<double>, 9> G_dyadic;
+		std::complex<double> G_phi;
+
+		// Compute the MGF
+		mgf.ComputeMGF(x_diff, y_diff, z_obs, z_src, G_dyadic, G_phi);
+
+		// The dyadic MGF components are now stored in G_dyadic, while the scalar MGF is stored in G_phi.
+
+
+		// ====== Optional modifications to the output ======
+
+		// With reference to Michalski, Zheng, TAP 1990, 38 (3), equations (50)--(53), the MGF we computed above ** does include ** the cos and sin pre-factors. However, in literature, the MGF is often reported without these pre-factors. Therefore, for the purpose of this example, and to make direct comparisons to data from literature, those prefactors are cancelled out below. This section of code would not be needed in an actual MoM-type application.
+
+		std::complex<double> zeta = std::atan2(y_diff, x_diff);
+		std::complex<double> cos_term = std::cos(zeta);
+		std::complex<double> sin_term = std::sin(zeta);
+
+		G_dyadic[2] /= cos_term;
+		G_dyadic[6] /= cos_term;
+		G_dyadic[5] /= sin_term;
+		G_dyadic[7] /= sin_term;
+
+		
+		// ====== Export data to the output text file ======
+
+		// Lateral separation
+		double rho = std::sqrt( std::pow(x_diff, 2) + std::pow(y_diff, 2) );
+		outfile << rho << " " << 
+				std::abs(G_dyadic[0]) << std::abs(G_dyadic[1]) << std::abs(G_dyadic[2]) << 
+				std::abs(G_dyadic[3]) << std::abs(G_dyadic[4]) << std::abs(G_dyadic[5]) << 
+				std::abs(G_dyadic[6]) << std::abs(G_dyadic[7]) << std::abs(G_dyadic[8]) << std::abs(G_phi) << std::endl;
+		
+	}
+	
+	return;
+	
+}
+
+
+int main(int argc, char** argv)
+{
+
+    std::string tech_file;
+	
+	if (argc < 2)
+		throw std::runtime_error("[ERROR] Layer file was not provided.");
+	else
+		tech_file = argv[1];
+	
+	TestMGF(tech_file);
+	
+	return 0;
+
+}
+
+
+
+
+
+

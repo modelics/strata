@@ -1,0 +1,54 @@
+*.d
+*.o
+*.obj
+*.DS_Store
+*._.DS_Store
+*.lib
+*.a
+*.la
+*.lo
+*.dll
+*.so
+*.so.*
+*.dylib
+*.exe
+build/
+*.debug
+# Latex auxiliary files
+*.aux
+*.auxlock
+*.synctex
+*.synctex.gz
+*.synctex.gz(busy)
+*.blg
+*.bbl
+*.md5
+*.dpth
+*.dep
+*.tmp
+# Temp Emacs files
+*~
+
+# Images & documents
+*.png
+*.jpg
+*.pdf
+
+# Emacs tags
+*GPATH*
+*GRTAGS*
+*GTAGS*
+
+# MGF interpolation tables
+*.mgf
+
+*README_copy*
+doc/*
+
+# External libraries and builds
+build/*
+*build/*
+external/*
+!external/AmosBessel.tar.gz
+!external/boost*.tar.gz
+
