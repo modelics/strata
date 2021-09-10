@@ -67,7 +67,7 @@ void TestMGF(std::string &tech_file)
 	// This class is the "engine" which will compute the MGF
 	MGF mgf;
 
-	// Tell the class we want to use the numerical integration method
+	// Tell the class that we want to use the numerical integration method
 	s.method = MGF_INTEGRATE;
 
 	// Initialize the class with the given stackup and chosen settings
@@ -90,6 +90,8 @@ void TestMGF(std::string &tech_file)
 	outfile << "Frequency: " << f << " Hz" << std::endl;
 	outfile << "z_src: " << z_src << " m" << std::endl;
 	outfile << "z_obs: " << z_obs << " m" << std::endl;
+
+	// The lateral separation between source and observation points (rho) and all the MGF components is tabulated for each observation point
 	outfile << "\nrho Gxx Gxy Gxz Gyz Gyy Gyz Gzx Gzy Gzz Gphi" << std::endl;
 
 	for (int ii = 0; ii < Nx; ii++)
@@ -120,10 +122,16 @@ void TestMGF(std::string &tech_file)
 		std::complex<double> cos_term = std::cos(zeta);
 		std::complex<double> sin_term = std::sin(zeta);
 
-		G_dyadic[2] /= cos_term;
-		G_dyadic[6] /= cos_term;
-		G_dyadic[5] /= sin_term;
-		G_dyadic[7] /= sin_term;
+		if (std::abs(cos_term) > 0.0)
+		{
+			G_dyadic[2] /= cos_term;
+			G_dyadic[6] /= cos_term;
+		}
+		if (std::abs(sin_term) > 0.0)
+		{
+			G_dyadic[5] /= sin_term;
+			G_dyadic[7] /= sin_term;
+		}
 
 		
 		// ====== Export data to the output text file ======
@@ -131,9 +139,9 @@ void TestMGF(std::string &tech_file)
 		// Lateral separation
 		double rho = std::sqrt( std::pow(x_diff, 2) + std::pow(y_diff, 2) );
 		outfile << rho << " " << 
-				std::abs(G_dyadic[0]) << std::abs(G_dyadic[1]) << std::abs(G_dyadic[2]) << 
-				std::abs(G_dyadic[3]) << std::abs(G_dyadic[4]) << std::abs(G_dyadic[5]) << 
-				std::abs(G_dyadic[6]) << std::abs(G_dyadic[7]) << std::abs(G_dyadic[8]) << std::abs(G_phi) << std::endl;
+				std::abs(G_dyadic[0]) << " " << std::abs(G_dyadic[1]) << " " << std::abs(G_dyadic[2]) << " " << 
+				std::abs(G_dyadic[3]) << " " << std::abs(G_dyadic[4]) << " " << std::abs(G_dyadic[5]) << " " << 
+				std::abs(G_dyadic[6]) << " " << std::abs(G_dyadic[7]) << " " << std::abs(G_dyadic[8]) << " " << std::abs(G_phi) << std::endl;
 		
 	}
 	
