@@ -19,7 +19,6 @@ set(BUILD_EXT ${LIB_EXT}/builds)
 
 set(WITH_OPENBLAS_INC "" CACHE PATH "Specify the path to an existing OpenBLAS header location. If not specified, OpenBlas will be downloaded and installed.")
 set(WITH_OPENBLAS_LIB "" CACHE PATH "Specify the path to an existing OpenBLAS static library location. If not specified, OpenBlas will be downloaded and installed.")
-set(WITH_BOOST_DIR "" CACHE PATH "Specify the path to an existing Boost installation. If not specified, Boost will be downloaded and installed.")
 
 # ------ OpenBLAS ------
 
