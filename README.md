@@ -41,6 +41,20 @@ To easily incorporate into existing codes, one can also extract out the singular
 
 The code is written with modularity and readability as a priority, to allow easily extending its functionality.
 
+## Citing Strata
+
+We request that you acknowledge the authors of Strata by citing the following:
+
+```latex
+@INPROCEEDINGS{strata,
+	author={S. {Sharma} and P. {Triverio}},
+	booktitle={2021 {IEEE} International Symposium on Antennas and Propagation and {USNC-URSI} Radio Science Meeting},
+	title={Strata: An Open-Source {C++} Library for Computing {Green's} Functions for Layered Media},
+	year={2021},
+	month={Dec.},
+	address = {Singapore}}
+```
+
 ## References
 
 <a name="mgf01"></a>[1] K. A. Michalski and D. Zheng, "Electromagnetic scattering and radiation by surfaces of arbitrary shape in layered media. I. theory," *IEEE Trans. Antennas Propag.*, vol. 38, no. 3, pp. 335–344, Mar. 1990.

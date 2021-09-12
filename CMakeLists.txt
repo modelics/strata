@@ -157,7 +157,6 @@ SET(MGF_SRC
     ${CMAKE_CURRENT_SOURCE_DIR}/src/quasistatic_MGF.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/src/spectral_MGF.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/src/lapacke_interface.cpp
-    ${CMAKE_CURRENT_SOURCE_DIR}/src/fileIO.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/src/coordinate_system.cpp
 )
 
