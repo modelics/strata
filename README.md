@@ -6,7 +6,7 @@ Source code, documentation and examples will be released in December 2021.
 
 ## Prerequisites
 
-* [CMake](https://cmake.org/)
+* [CMake](https://cmake.org/), at least version 3.10.2
 
 ## Installation and Usage
 
@@ -21,7 +21,7 @@ make
 
 **Important notes**
 
-* An internet connection is required during the installation process, because some third-party libraries ([OpenBLAS](https://www.openblas.net/) and [yaml-cpp](https://github.com/jbeder/yaml-cpp)) will be downloaded and installated automatically.
+* An internet connection is required during the installation process, because some third-party libraries ([OpenBLAS](https://www.openblas.net/) and [yaml-cpp](https://github.com/jbeder/yaml-cpp)) will automatically be downloaded and installated locally in the directory `external`.
 * If you already have OpenBLAS installed on your machine, you could save some time by reusing it. In that case, instead of `cmake ..`, run
    ```bash
    cmake -DWITH_OPENBLAS_INC=location/of/openblas/headers -DWITH_OPENBLAS_LIB=location/of/openblas/lib ..
