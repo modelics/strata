@@ -43,28 +43,26 @@ The functionality of Strata can be divided into the computation of the MGF in (a
 
 ### a) Computation of the spectral-domain MGF
 
-Strata can compute, in spectral domain:
+   Strata can compute, in spectral domain:
 
-* Each unique component of the dyadic $`\mathbf{G}^{(\mathrm{A})}`$, and of $`{G}^{(\phi)}`$, as defined in formulation C of [[1]](#mgf01)
-* Each unique component of the dyadics $`\mathbf{G}^{(\mathrm{EM})}`$ and $`\mathbf{G}^{(\mathrm{HJ})}`$, as defined in [[2]](#mgf02)
+   * Each unique component of the dyadic $`\mathbf{G}^{(\mathrm{A})}`$, and of $`{G}^{(\phi)}`$, as defined in formulation C of [[1]](#mgf01)
+   * Each unique component of the dyadics $`\mathbf{G}^{(\mathrm{EM})}`$ and $`\mathbf{G}^{(\mathrm{HJ})}`$, as defined in [[2]](#mgf02)
 
-In addition, one can optionally extract the quasistatic terms as defined in [[3]](#qse01).
-
-The code is written with modularity and readability as a priority, and can be extended to incorporate other formulations of the spectral-domain MGF.
+   In addition, one can optionally extract the quasistatic terms as defined in [[3]](#qse01).
 
 ### b) Computation of the spatial-domain MGF
 
-Strata allows computing the spatial domain MGF via the following methods:
+   Strata allows computing the spatial domain MGF via the following methods:
 
-* Direct numerical integration of the Sommerfeld integrals, as described in [[4]](#mgf03)
-* The discrete complex image method (DCIM) [[5]](#dcim01)
-* Precomputation of interpolation tables constructed using either one of the above methods
+   * Direct numerical integration of the Sommerfeld integrals, as described in [[4]](#mgf03)
+   * The discrete complex image method (DCIM) [[5]](#dcim01)
+   * Precomputation of interpolation tables constructed using either one of the above methods
 
-In addition, one can optionally extract (in spectral domain) and add (in spatial domain) the quasistatic terms as defined in [[3]](#qse01).
+   In addition, one can optionally extract (in spectral domain) and add (in spatial domain) the quasistatic terms as defined in [[3]](#qse01).
 
-To easily incorporate into existing codes, one can also extract out the singular behaviour of the MGF, so that the singularities can be treated separately.
+   To easily incorporate into existing codes, one can also extract out the singular behaviour of the MGF, so that the singularities can be treated separately.
 
-The code is written with modularity and readability as a priority, to allow easily extending its functionality.
+Strata is written with modularity and readability as a priority, to allow users to incorporate new formulations and extend the functionality in both spectral and spatial domains.
 
 ## Citing Strata
 
