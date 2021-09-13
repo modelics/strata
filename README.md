@@ -2,8 +2,6 @@ Strata is a C++ library for computing the dyadic multilayer Green's function (MG
 Strata can be used as a standalone library to compute the MGF as a function of frequency and/or spatial separation.
 It can also be incorporated easily into existing integral equation solvers.
 
-Source code, documentation and examples will be released in December 2021.
-
 ## Prerequisites
 
 * [CMake](https://cmake.org/), at least version 3.10.2
@@ -27,8 +25,12 @@ make
    cmake -DWITH_OPENBLAS_INC=location/of/openblas/headers -DWITH_OPENBLAS_LIB=location/of/openblas/lib ..
    ```
    where `location/of/openblas/headers` is the path to the directory containing all OpenBLAS-related headers (e.g., `cblas.h` and `lapacke.h`), and `location/of/openblas/lib` is the path to the directory containing the OpenBLAS shared library, usually `libopenblas.so`.
+* On macOS, the `cmake` command requires an additional option:
+   ```bash
+   cmake -DCMAKE_INSTALL_RPATH_USE_LINK_PATH="ON" ..
+   ```
 
-For out-of-source builds, see [this page](https://gitlab.kitware.com/cmake/community/-/wikis/FAQ#what-is-an-out-of-source-build).
+Advanced users may want to consult [this page](https://gitlab.kitware.com/cmake/community/-/wikis/FAQ#what-is-an-out-of-source-build) for out-of-source builds.
 
 To use Strata within your own application, include the directory `inc`, which contains all the headers, and link to `build/libstrata.so` while building your project.
 
@@ -36,6 +38,7 @@ Strata is designed for UNIX-based operating systems, and has been tested on
 * Ubuntu 20.04
 * Ubuntu 18.04
 * CentOS 7
+* macOS Catalina 10.15.6
 
 ## Features
 
