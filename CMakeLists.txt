@@ -167,6 +167,6 @@ if ((WITH_OPENBLAS_INC STREQUAL "") OR
     (WITH_OPENBLAS_LIB STREQUAL ""))
     add_dependencies(strata external_openblas)
 endif()
-
+set_property(TARGET strata PROPERTY INSTALL_RPATH_USE_LINK_PATH TRUE)
 
 
