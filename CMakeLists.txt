@@ -35,7 +35,8 @@ set(WITH_OPENBLAS_LIB "" CACHE PATH "Path to an existing OpenBLAS static library
 
 # ====== External libraries ======
 
-set(LIB_EXT ${CMAKE_CURRENT_SOURCE_DIR}/external)
+# set(LIB_EXT ${CMAKE_CURRENT_SOURCE_DIR}/external)
+set(LIB_EXT ${CMAKE_BINARY_DIR}/external)
 set(BUILD_EXT ${LIB_EXT}/builds)
 
 # ------ OpenBLAS 0.3.15 ------
