@@ -70,7 +70,7 @@ endif()
 # ./bcp math/quadrature math/special_functions/bessel.hpp ../../../../../../../boost_1_76_0_selected --boost=../../../../../../../boost_1_76_0
 
 execute_process(
-    COMMAND ${CMAKE_COMMAND} -E tar "xzf" ${LIB_EXT}/boost_1_76_0_selected.tar.gz
+    COMMAND ${CMAKE_COMMAND} -E tar "xzf" ${CMAKE_CURRENT_SOURCE_DIR}/external/boost_1_76_0_selected.tar.gz
     WORKING_DIRECTORY ${LIB_EXT}
 )
 set(BOOST_INC ${LIB_EXT}/boost_1_76_0_selected)
@@ -79,7 +79,7 @@ set(BOOST_INC ${LIB_EXT}/boost_1_76_0_selected)
 
 # set(AMOSBESSEL_ROOT ${BUILD_EXT}/AmosBessel)
 # ExternalProject_Add(external_amosbessel
-#     URL ${LIB_EXT}/AmosBessel.tar.gz
+#     URL ${CMAKE_CURRENT_SOURCE_DIR}/external/AmosBessel.tar.gz
 #     URL_HASH SHA256=a3b7e2d7a3bc2cab5e5a69e1790c2ca72b898d6a561255f56e154927751ffae5
 #     PREFIX ${AMOSBESSEL_ROOT}
 #     SOURCE_DIR ${LIB_EXT}/AmosBessel
@@ -91,7 +91,7 @@ set(BOOST_INC ${LIB_EXT}/boost_1_76_0_selected)
 # )
 
 # # execute_process(
-# #         COMMAND ${CMAKE_COMMAND} -E tar "xzf" ${LIB_EXT}/AmosBessel.tar.gz
+# #         COMMAND ${CMAKE_COMMAND} -E tar "xzf" ${CMAKE_CURRENT_SOURCE_DIR}/external/AmosBessel.tar.gz
 # #         WORKING_DIRECTORY ${LIB_EXT}
 # # )
 # # add_library(amosbessel SHARED ${LIB_EXT}/AmosBessel/zbsubs.f ${LIB_EXT}/AmosBessel/machcon.f ${LIB_EXT}/AmosBessel/libAmosBessel.cc)
@@ -113,7 +113,7 @@ set(BOOST_INC ${LIB_EXT}/boost_1_76_0_selected)
 
 set(AMOSBESSEL_ROOT ${BUILD_EXT}/AmosBessel)
 ExternalProject_Add(external_amosbessel
-    URL ${LIB_EXT}/AmosBessel.tar.gz
+    URL ${CMAKE_CURRENT_SOURCE_DIR}/external/AmosBessel.tar.gz
     # URL_HASH SHA256=a3b7e2d7a3bc2cab5e5a69e1790c2ca72b898d6a561255f56e154927751ffae5
     PREFIX ${AMOSBESSEL_ROOT}
     SOURCE_DIR ${LIB_EXT}/AmosBessel
