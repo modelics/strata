@@ -45,7 +45,7 @@ set(BLA_VENDOR OpenBLAS)
 if ((NOT WITH_OPENBLAS_INC STREQUAL "") AND
     (NOT WITH_OPENBLAS_LIB STREQUAL ""))
     set(OPENBLAS_LIB
-        "${WITH_OPENBLAS_LIB}/${CMAKE_SHARED_LIBRARY_PREFIX}openblas${CMAKE_SHARED_LIBRARY_SUFFIX}")
+        "${WITH_OPENBLAS_LIB}")
     set(OPENBLAS_INC "${WITH_OPENBLAS_INC}")
     add_custom_target(external_openblas)
 else()
@@ -69,11 +69,24 @@ endif()
 
 # ./bcp math/quadrature math/special_functions/bessel.hpp ../../../../../../../boost_1_76_0_selected --boost=../../../../../../../boost_1_76_0
 
-execute_process(
-    COMMAND ${CMAKE_COMMAND} -E tar "xzf" ${CMAKE_CURRENT_SOURCE_DIR}/external/boost_1_76_0_selected.tar.gz
-    WORKING_DIRECTORY ${LIB_EXT}
+# execute_process(
+#     COMMAND ${CMAKE_COMMAND} -E tar "xzf" ${CMAKE_CURRENT_SOURCE_DIR}/external/boost_1_76_0_selected.tar.gz
+#     WORKING_DIRECTORY ${LIB_EXT}
+# )
+# set(BOOST_INC ${LIB_EXT}/boost_1_76_0_selected)
+# add_custom_target(external_boost)
+
+set(BOOST_ROOT ${BUILD_EXT}/boost_1_76_0_selected)
+ExternalProject_Add(external_boost
+    URL ${CMAKE_CURRENT_SOURCE_DIR}/external/boost_1_76_0_selected.tar.gz
+    URL_HASH SHA256=a3b5990412456c7a528c255132677644e8add4f3d6b50e864667813a9bd43afb
+    PREFIX ${BOOST_ROOT}
+    SOURCE_DIR ${LIB_EXT}/boost_1_76_0_selected
+    CONFIGURE_COMMAND tar "xzf" ${CMAKE_CURRENT_SOURCE_DIR}/external/boost_1_76_0_selected.tar.gz --strip-components=1 -C ${BOOST_ROOT}
+    BUILD_COMMAND ""
+    INSTALL_COMMAND ""
 )
-set(BOOST_INC ${LIB_EXT}/boost_1_76_0_selected)
+set(BOOST_INC ${BOOST_ROOT})
 
 # ------ AmosBessel ------
 
@@ -169,11 +182,22 @@ SET(MGF_SRC
 add_library(strata SHARED ${MGF_SRC})
 target_link_libraries(strata ${OPENBLAS_LIB} ${AmosBessel_LIB} ${YAML_LIB})
 target_include_directories(strata PRIVATE ${INCLUDE_DIR})
-add_dependencies(strata external_amosbessel external_yaml_cpp)
+add_dependencies(strata external_amosbessel external_yaml_cpp external_boost)
 if ((WITH_OPENBLAS_INC STREQUAL "") OR
     (WITH_OPENBLAS_LIB STREQUAL ""))
     add_dependencies(strata external_openblas)
 endif()
 set_property(TARGET strata PROPERTY INSTALL_RPATH_USE_LINK_PATH TRUE)
+
+# if (CMAKE_INSTALL_PREFIX_INITIALIZED_TO_DEFAULT)
+#   set(CMAKE_INSTALL_PREFIX "/my/default" CACHE PATH "..." FORCE)
+# endif()
+
+install(TARGETS strata DESTINATION ${CMAKE_INSTALL_PREFIX}/lib)
+install(DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}/inc/"
+        DESTINATION "include"
+        FILES_MATCHING
+        PATTERN "*.hpp"
+)
 
 
