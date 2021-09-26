@@ -35,7 +35,6 @@ set(WITH_OPENBLAS_LIB "" CACHE PATH "Path to an existing OpenBLAS static library
 
 # ====== External libraries ======
 
-# set(LIB_EXT ${CMAKE_CURRENT_SOURCE_DIR}/external)
 set(LIB_EXT ${CMAKE_BINARY_DIR}/external)
 set(BUILD_EXT ${LIB_EXT}/builds)
 
@@ -159,6 +158,15 @@ set(YAML_INC "${YAML_CPP_ROOT}/include")
 
 # ====== Strata ======
 
+get_filename_component(OPENBLAS_LIB_DIR ${OPENBLAS_LIB} DIRECTORY)
+get_filename_component(AmosBessel_LIB_DIR ${AmosBessel_LIB} DIRECTORY)
+get_filename_component(YAML_LIB_DIR ${YAML_LIB} DIRECTORY)
+
+set(CMAKE_SKIP_BUILD_RPATH FALSE)
+set(CMAKE_BUILD_WITH_INSTALL_RPATH FALSE)
+set(CMAKE_INSTALL_RPATH ${OPENBLAS_LIB_DIR} ${AmosBessel_LIB_DIR} ${YAML_LIB_DIR} ${CMAKE_INSTALL_PREFIX}/lib)
+set(CMAKE_INSTALL_RPATH_USE_LINK_PATH FALSE)
+
 set(EXECUTABLE_OUTPUT_PATH ${CMAKE_BINARY_DIR})
 
 SET(INCLUDE_DIR
@@ -182,16 +190,12 @@ SET(MGF_SRC
 add_library(strata SHARED ${MGF_SRC})
 target_link_libraries(strata ${OPENBLAS_LIB} ${AmosBessel_LIB} ${YAML_LIB})
 target_include_directories(strata PRIVATE ${INCLUDE_DIR})
-add_dependencies(strata external_amosbessel external_yaml_cpp external_boost)
 if ((WITH_OPENBLAS_INC STREQUAL "") OR
     (WITH_OPENBLAS_LIB STREQUAL ""))
-    add_dependencies(strata external_openblas)
+    add_dependencies(strata external_openblas external_amosbessel external_yaml_cpp external_boost)
+else ()
+    add_dependencies(strata external_amosbessel external_yaml_cpp external_boost)
 endif()
-set_property(TARGET strata PROPERTY INSTALL_RPATH_USE_LINK_PATH TRUE)
-
-# if (CMAKE_INSTALL_PREFIX_INITIALIZED_TO_DEFAULT)
-#   set(CMAKE_INSTALL_PREFIX "/my/default" CACHE PATH "..." FORCE)
-# endif()
 
 install(TARGETS strata DESTINATION ${CMAKE_INSTALL_PREFIX}/lib)
 install(DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}/inc/"
@@ -199,5 +203,7 @@ install(DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}/inc/"
         FILES_MATCHING
         PATTERN "*.hpp"
 )
+
+
 
 
