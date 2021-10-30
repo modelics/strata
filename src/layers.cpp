@@ -119,7 +119,7 @@ void LayerManager::ProcessTechFile_yaml(std::string tech_file, double units)
 			h *= units;
 			double zmax = zmin + h;
 
-			double epsr = layer["epsr"].as<double> ();
+			double epsr = layer["epsr"].as<double> (1.0);
 			double mur = layer["mur"].as<double> (1.0);
 			double sigma = layer["sigma"].as<double> (0.0);
 			double sigmamu = layer["sigmamu"].as<double> (0.0);

@@ -1,3 +1,5 @@
+# Author: Shashwat Sharma
+
 cmake_minimum_required(VERSION 3.10.2)
 include(ExternalProject)
 
@@ -204,6 +206,9 @@ install(DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}/inc/"
         PATTERN "*.hpp"
 )
 
+# ------ Test files ------
+
+add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/test)
 
 
 

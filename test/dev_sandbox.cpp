@@ -30,7 +30,7 @@ int main(int argc, char** argv)
 {
 
 	std::cout << "===========================" << std::endl;
-	std::cout << "TestMGF()" << std::endl;
+	std::cout << "dev_sandbox()" << std::endl;
 	std::cout << "===========================" << std::endl;
 
     std::string tech_file, out_file;
@@ -51,19 +51,44 @@ int main(int argc, char** argv)
 	}
 
 
+	// ====== Input settings ======
+
+	// ------ Ling, Jin, 2000 ------
+
+	// // Set the analysis frequency and wave number
+	// double f = 30.0e9;
+
+	// double x_src = 0.0, y_src = 0.0, z_src = 0.4e-3;
+	// double y_obs = 0.0, z_obs = 1.4e-3;
+	
+	// int Nx = 500; // Number of points in the sweep
+	// double x_obs_min = std::abs(1.6e-4*lambda0);
+	// double x_obs_max = std::abs(1.6e1*lambda0);
+
+	// ------ AMD tcoil 2016 ------
+
+	// Set the analysis frequency and wave number
+	double f = 250.0e6;
+
+	double x_src = 0.0, y_src = 0.0, z_src = 2.0e-6;
+	double y_obs = 0.0, z_obs = 2.0e-6;
+	
+	int Nx = 500; // Number of points in the sweep
+	double x_obs_min = std::abs(1.0e-7);
+	double x_obs_max = std::abs(290.0e-6);
+
+
 	// ====== Stackup ======
 
 	// Create a layer management object and parse the layer file
 	LayerManager lm;
 	lm.ProcessTechFile(tech_file, 1.0e-9);
 
-	// Set the analysis frequency and wave number
-	double f = 30.0e9;
 	double omega = 2.0*M_PI*f;
 
 	// Some useful constants are provided via the Strata namespace
-	std::complex<double> k0 = omega*std::sqrt(strata::eps0*strata::mu0);
-	std::complex<double> lambda0 = 2.0*M_PI/k0;
+	double k0 = omega*std::sqrt(strata::eps0*strata::mu0);
+	double lambda0 = 2.0*M_PI/k0;
 
 	// Precompute frequency-dependent layer data
 	lm.ProcessLayers(f);
@@ -73,20 +98,26 @@ int main(int argc, char** argv)
 
 
 	// ====== Set up the source and observation points ======
-
-	// Set the source and observation (obs) points
-	// For this example, we'll sweep the observation point along the x axis from 10^{-4} wavelengths to 10 wavelengths away from the source point
-	
-	double x_src = 0.0, y_src = 0.0, z_src = 0.4e-3;
-	double y_obs = 0.0, z_obs = 1.4e-3;
-	
-	int Nx = 500; // Number of points in the sweep
-	double x_obs_min = std::abs(1.6e-4*lambda0);
-	double x_obs_max = std::abs(1.6e1*lambda0);
-		
+			
 	// We can use the Matlab-like linspace or logspace functions to create linearly- or logarithmically-spaced vectors points, provided via the Strata namespace
 	std::vector<double> x_vec;
 	strata::logspace(std::log10(x_obs_min), std::log10(x_obs_max), Nx, x_vec);
+
+	std::vector<double> z_nodes;
+	if (z_obs == z_src)
+		z_nodes = {z_obs};
+	else
+		z_nodes = {z_obs, z_src};
+	
+	lm.ClearNodes_z();
+	lm.InsertNodes_z(z_nodes);
+
+	int N_rho = std::max(30.0, 30.0*x_obs_max/lambda0);
+	std::vector<double> rho_nodes;
+	strata::linspace(std::sqrt(std::pow(x_obs_min, 2) + std::pow(y_obs, 2)), std::sqrt(std::pow(x_obs_max, 2) + std::pow(y_obs, 2)), N_rho, rho_nodes);
+
+	lm.ClearNodes_rho();
+	lm.InsertNodes_rho(rho_nodes);
 
 
 	// ====== Initialize the MGF class ======
@@ -100,7 +131,23 @@ int main(int argc, char** argv)
 	MGF mgf;
 
 	// Tell the class that we want to use the numerical integration method
-	s.method = MGF_INTEGRATE;
+	s.method = MGF_INTERPOLATE;
+	s.extract_quasistatic = true;
+	s.extract_singularities = false;
+	s.extract_homogeneous = false;
+
+	s.tol_qse = 1.0e-6;
+	s.switching_point = -1.0;
+
+	s.DCIM_method = DCIM_TWO_LEVEL;
+	s.tol_svd = 1.0e-4;
+	s.tol_eig = 1.0e-16;
+	s.max_num_images = -1;
+
+	s.sampling_method = MGF_INTEGRATE;
+	s.order = 2;
+	s.load_table = false;
+	s.export_table = false;
 
 	// Initialize the class with the given stackup and chosen settings
 	mgf.Initialize(f, lm, s);

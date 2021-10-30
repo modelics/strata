@@ -1,19 +1,5 @@
-cmake_minimum_required(VERSION 3.10.2)
+# Author: Shashwat Sharma
 
-include(ExternalProject)
-project(StrataTest)
-
-set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
-
-ENABLE_LANGUAGE(C)
-ENABLE_LANGUAGE(CXX)
-
-set(CMAKE_CXX_STANDARD 11)
-add_definitions(-march=native)
-string(REPLACE "-O2" "-O3" CMAKE_CXX_FLAGS_RELWITHDEBINFO "${CMAKE_CXX_FLAGS_RELWITHDEBINFO}")
-set(EXECUTABLE_OUTPUT_PATH ${CMAKE_BINARY_DIR})
-
-message(STATUS ${CMAKE_CURRENT_SOURCE_DIR})
 set(STRATA_LIB
         "${CMAKE_CURRENT_SOURCE_DIR}/../build/${CMAKE_SHARED_LIBRARY_PREFIX}strata${CMAKE_SHARED_LIBRARY_SUFFIX}")
 set(STRATA_INC "${CMAKE_CURRENT_SOURCE_DIR}/../inc")
@@ -27,5 +13,8 @@ add_executable(testMGF ${SRC_DIR}/testMGF.cpp)
 target_include_directories(testMGF PRIVATE ${INC_DIR} ${STRATA_INC})
 target_link_libraries(testMGF ${STRATA_LIB})
 
+add_executable(dev_sandbox ${SRC_DIR}/dev_sandbox.cpp)
+target_include_directories(dev_sandbox PRIVATE ${INC_DIR} ${STRATA_INC})
+target_link_libraries(dev_sandbox ${STRATA_LIB})
 
 
