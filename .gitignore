@@ -43,7 +43,7 @@ build/
 *.mgf
 
 *README_copy*
-doc/*
+doc/old*
 
 # External libraries and builds
 build/*
