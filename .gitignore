@@ -47,6 +47,7 @@ doc/old*
 
 # External libraries and builds
 build/*
+doc/build*
 *build/*
 external/*
 !external/AmosBessel.tar.gz
