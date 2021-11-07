@@ -38,7 +38,14 @@ We request that you acknowledge the authors of Strata by citing the following:
 		title={Strata: An Open-Source {C++} Library for Computing {Green's} Functions for Layered Media},
 		year={2021},
 		month={Dec.},
-		ad
+		address = {Singapore}}
+
+Acknowledgment
+--------------
+
+* Strata ships with files from the libAmosBessel library by Homer Reid, which provides C++ wrappers for computing Bessel functions with the original fortran routines by T. E. Amos.
+* Also included are selected files from the `Boost <https://www.boost.org/>`_  C++ library for numerical integration.
+
 
 .. Indices and tables
 .. ==================

@@ -118,7 +118,7 @@ set(YAML_INC "${YAML_CPP_ROOT}/include")
 
 # ------ Documentation ------
 
-add_custom_target(doc COMMAND "cd ${CMAKE_CURRENT_SOURCE_DIR}/doc && ./generate_docs.sh")
+add_custom_target(doc COMMAND cd ${CMAKE_CURRENT_SOURCE_DIR}/doc && ./generate_docs.sh)
 
 
 # ====== Strata ======

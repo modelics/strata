@@ -6,15 +6,15 @@
 Basic Usage
 ===========
 
-There are three basis phases: defining the layer stackup, initializing the MGF engine, and computing the MGF.
+Below is an overview of the three basic steps: defining the layer stackup, initializing the MGF engine, and computing the MGF.
 
 .. _stackupdef:
 
 Stackup Definition
 ------------------
 
-The geometric extents and material parameters of each layer are stored in and managed by objects of the class ``LayerManager``.
-This object must be provided with stackup information, which can be done via a text file in the ``.yaml`` file format.
+The geometric extents and material parameters of each layer are stored in, and managed by, objects of the class ``LayerManager``.
+This object is provided with stackup information through a layer definition text file in the ``.yaml`` format.
 The formatting of the layer definition file is discussed here: :ref:`egtech`.
 Once the layer definition file is created, the ``LayerManager`` object can be initialized as follows:
 
@@ -45,7 +45,7 @@ The operating frequency ``f``, the ``LayerManager`` object, and the ``MGF_settin
     mgf.Initialize(f, lm, s);
 
 The object ``mgf`` is now responsible for the actual computation of the MGF.
-Various MGF computation methods are available; direct Sommerfeld integration is considered here.
+Various MGF computation methods are available; ``MGF_INTEGRATE`` corresponds to direct Sommerfeld integration.
 See the examples in ``testMGF.cpp``, ``testInterp.cpp``, and ``testDCIM.cpp`` for details on other methods.
 The initialization step must be performed at every frequency, so it is recommended to keep the ``mgf`` object local to the frequency loop, and call ``MGF::Initialize`` at each frequency point.
 

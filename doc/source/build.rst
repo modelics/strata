@@ -31,7 +31,7 @@ To install Strata, clone `the Strata repository <https://github.com/modelics/str
 Important notes
 """""""""""""""
 
-* An internet connection is required during the installation process because some third-party libraries (`OpenBLAS <https://www.openblas.net/>`_ and `yaml <https://github.com/jbeder/yaml-cpp>`_) will automatically be downloaded and installated locally in the directory ``external``.
+* An internet connection is required during the installation process because some third-party libraries (`OpenBLAS <https://www.openblas.net/>`_ and `yaml <https://github.com/jbeder/yaml-cpp>`_) will be downloaded automatically and installated locally in the directory ``build/external/builds``.
 * If you already have OpenBLAS installed on your machine, you can save some time by reusing it. In that case, instead of ``cmake ..``, run
 
   .. code-block:: bash
