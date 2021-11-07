@@ -70,13 +70,6 @@ endif()
 
 # ./bcp math/quadrature math/special_functions/bessel.hpp ../../../../../../../boost_1_76_0_selected --boost=../../../../../../../boost_1_76_0
 
-# execute_process(
-#     COMMAND ${CMAKE_COMMAND} -E tar "xzf" ${CMAKE_CURRENT_SOURCE_DIR}/external/boost_1_76_0_selected.tar.gz
-#     WORKING_DIRECTORY ${LIB_EXT}
-# )
-# set(BOOST_INC ${LIB_EXT}/boost_1_76_0_selected)
-# add_custom_target(external_boost)
-
 set(BOOST_ROOT ${BUILD_EXT}/boost_1_76_0_selected)
 ExternalProject_Add(external_boost
     URL ${CMAKE_CURRENT_SOURCE_DIR}/external/boost_1_76_0_selected.tar.gz
@@ -88,40 +81,6 @@ ExternalProject_Add(external_boost
     INSTALL_COMMAND ""
 )
 set(BOOST_INC ${BOOST_ROOT})
-
-# ------ AmosBessel ------
-
-# set(AMOSBESSEL_ROOT ${BUILD_EXT}/AmosBessel)
-# ExternalProject_Add(external_amosbessel
-#     URL ${CMAKE_CURRENT_SOURCE_DIR}/external/AmosBessel.tar.gz
-#     URL_HASH SHA256=a3b7e2d7a3bc2cab5e5a69e1790c2ca72b898d6a561255f56e154927751ffae5
-#     PREFIX ${AMOSBESSEL_ROOT}
-#     SOURCE_DIR ${LIB_EXT}/AmosBessel
-#     DOWNLOAD_DIR ${LIB_EXT}
-#     BUILD_IN_SOURCE ON
-#     CONFIGURE_COMMAND ""
-#     BUILD_COMMAND make
-#     INSTALL_COMMAND ""
-# )
-
-# # execute_process(
-# #         COMMAND ${CMAKE_COMMAND} -E tar "xzf" ${CMAKE_CURRENT_SOURCE_DIR}/external/AmosBessel.tar.gz
-# #         WORKING_DIRECTORY ${LIB_EXT}
-# # )
-# # add_library(amosbessel SHARED ${LIB_EXT}/AmosBessel/zbsubs.f ${LIB_EXT}/AmosBessel/machcon.f ${LIB_EXT}/AmosBessel/libAmosBessel.cc)
-# # # target_link_libraries(amosbessel ${OPENBLAS_LIB} ${AmosBessel_LIB} ${YAML_LIB})
-# # target_include_directories(amosbessel PRIVATE ${LIB_EXT}/AmosBessel)
-
-# set(AmosBessel_LIB
-#         "${LIB_EXT}/AmosBessel/${CMAKE_STATIC_LIBRARY_PREFIX}AmosBessel${CMAKE_STATIC_LIBRARY_SUFFIX}")
-# # set(AmosBessel_LIB
-#         # "${LIB_EXT}/AmosBessel/${CMAKE_SHARED_LIBRARY_PREFIX}AmosBessel${CMAKE_SHARED_LIBRARY_SUFFIX}")
-# set(AmosBessel_INC "${LIB_EXT}/AmosBessel")
-
-# # add_library(amosbessel STATIC IMPORTED)
-# # set_property(TARGET amosbessel PROPERTY INTERFACE_INCLUDE_DIRECTORIES ${LIB_EXT}/AmosBessel)
-# # set_property(TARGET amosbessel PROPERTY IMPORTED_LOCATION ${LIB_EXT}/AmosBessel/${CMAKE_SHARED_LIBRARY_PREFIX}AmosBessel${CMAKE_SHARED_LIBRARY_SUFFIX})
-# # set_target_properties(amosbessel PROPERTIES IMPORTED_LINK_INTERFACE_LIBRARIES "gfortran")
 
 # ------ AmosBessel ------
 
@@ -156,6 +115,10 @@ ExternalProject_Add(external_yaml_cpp
 set(YAML_LIB
 "${YAML_CPP_ROOT}/lib/${CMAKE_SHARED_LIBRARY_PREFIX}yaml-cpp${CMAKE_SHARED_LIBRARY_SUFFIX}")
 set(YAML_INC "${YAML_CPP_ROOT}/include")
+
+# ------ Documentation ------
+
+add_custom_target(doc COMMAND "cd ${CMAKE_CURRENT_SOURCE_DIR}/doc && ./generate_docs.sh")
 
 
 # ====== Strata ======
@@ -194,9 +157,9 @@ target_link_libraries(strata ${OPENBLAS_LIB} ${AmosBessel_LIB} ${YAML_LIB})
 target_include_directories(strata PRIVATE ${INCLUDE_DIR})
 if ((WITH_OPENBLAS_INC STREQUAL "") OR
     (WITH_OPENBLAS_LIB STREQUAL ""))
-    add_dependencies(strata external_openblas external_amosbessel external_yaml_cpp external_boost)
+    add_dependencies(strata external_openblas external_amosbessel external_yaml_cpp external_boost doc)
 else ()
-    add_dependencies(strata external_amosbessel external_yaml_cpp external_boost)
+    add_dependencies(strata external_amosbessel external_yaml_cpp external_boost doc)
 endif()
 
 install(TARGETS strata DESTINATION ${CMAKE_INSTALL_PREFIX}/lib)
