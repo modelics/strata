@@ -6,7 +6,7 @@ It can also be incorporated easily into existing integral equation solvers.
 
 * [CMake](https://cmake.org/), at least version 3.10.2
 
-## Installation and Usage
+## Installation
 
 To install Strata, clone this repository and navigate to the root directory of the cloned repository in a terminal. Then run the following commands:
 
@@ -39,6 +39,10 @@ Strata is designed for UNIX-based operating systems, and has been tested on
 * Ubuntu 18.04
 * CentOS 7
 * macOS Catalina 10.15.6
+
+## Usage
+
+Please consult the Strata documentation, `doc/strata.html` or `doc/strata.pdf`.
 
 ## Features
 

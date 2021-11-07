@@ -9,18 +9,41 @@ Strata is a C++ library for computing the multilayer Green's function (MGF) for 
 
 If you are new to Strata, we recommend that you start from the :ref:`basicusage` section. A series of examples is provided in ``strata/test/`` for a hands-on introduction to various aspects of Strata, and we strongly recommend using these examples as a starting point in your application.
 
+Installation instructions can be found in the :ref:`build` section.
+
+Table of Contents
+-----------------
+
 .. toctree::
    :maxdepth: 2
-   :caption: Full List of Contents:
 
+   build
    basic_usage
    settings_list
    tech_example
    people
 
-Indices and tables
-==================
+.. _cite:
 
-* :ref:`genindex`
-* :ref:`modindex`
-* :ref:`search`
+Citing Strata
+-------------
+
+We request that you acknowledge the authors of Strata by citing the following:
+
+.. code-block:: latex
+
+	@INPROCEEDINGS{strata,
+		author={S. {Sharma} and P. {Triverio}},
+		booktitle={2021 {IEEE} International Symposium on Antennas and Propagation and {USNC-URSI} Radio Science Meeting},
+		title={Strata: An Open-Source {C++} Library for Computing {Green's} Functions for Layered Media},
+		year={2021},
+		month={Dec.},
+		ad
+
+.. Indices and tables
+.. ==================
+
+.. * `GitHub page <https://github.com/modelics/strata>`_
+.. * :ref:`genindex`
+.. * :ref:`modindex`
+.. * :ref:`search`
