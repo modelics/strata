@@ -48,8 +48,8 @@ The functionality of Strata can be divided into the computation of the MGF in (a
 
    Strata can compute, in spectral domain:
 
-   * Each component of the dyadic **G<sup>A</sup>**, and the scalar term **G<sup>&#966;</sup>**, as defined in formulation C of [[1]](#mgf01)
-   * Each unique component of the dyadics **G<sup>EM</sup>** and **G<sup>HJ</sup>**, as defined in [[2]](#mgf02)
+   * Each component of the dyadic **G<sup>(A)</sup>**, and the scalar term **G<sup>(&#966;)</sup>**, as defined in formulation-C of [[1]](#mgf01)
+   * Each unique component of the dyadics **G<sup>(EM)</sup>** and **G<sup>(HJ)</sup>**, as defined in [[2]](#mgf02)
 
    In addition, one can optionally extract the quasistatic terms as defined in [[3]](#qse01).
 
