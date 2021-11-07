@@ -16,12 +16,20 @@ method : {MGF_INTEGRATE, MGF_INTERPOLATE, MGF_DCIM, MGF_QUASISTATIC}
     Default: MGF_INTERPOLATE.
 
 extract_quasistatic : {true, false}
-    Whether or not to extract quasistatic contributions in the spectral domain, and then add them back analytically in the spatial domain [3]_.
+    Choose whether to extract quasistatic contributions in the spectral domain, and then add them back analytically in the spatial domain [3]_.
     Default: false.
 
-.. \item \lstinline{extract_singularities}: One of \{\lstinline{true}, \lstinline{false}\}. Only relevant when \lstinline{extract_quasistatic} is set to \lstinline{true}. Choose whether or not to extract weakly and strongly singular terms, and return the multiplicative coefficients necessary to later add back the singular terms. Default: \lstinline{false}.
+extract_homogeneous : {true, false}
+    Choose whether to extract the homogeneous material Green's function in the spectral domain, and then add it back in the spatial domain.
+    Default: false.
 
-.. .. \item \lstinline{verbose}: One of \{\lstinline{true}, \lstinline{false}\}. Choose whether to allow non-essential messages to be written to \lstinline{std::cout}. Default: \lstinline{true}.
+extract_singularities : {true, false}
+    Only relevant when either ``extract_quasistatic`` or ``extract_homogeneous`` is ``true``. Choose whether to extract weakly and strongly singular terms, and return the multiplicative coefficients necessary to later add back the singular terms. See the example ``testSingularities.cpp``.
+    Default: *false*.
+
+verbose : {true, false}
+    Allow messages to be written to ``std::cout``.
+    Default: *true*.
 
 .. \item \lstinline{DCIM_method}:  One of \{\lstinline{DCIM_ONE_LEVEL}, \lstinline{DCIM_TWO_LEVEL}~\cite{DCIM01}, \lstinline{DCIM_THREE_LEVEL}~\cite{DCIM03}\}. Choose the flavour of DCIM to be used. Default: \lstinline{DCIM_TWO_LEVEL}.
 
@@ -37,7 +45,7 @@ extract_quasistatic : {true, false}
 
 .. \item \lstinline{tol_eig}: \lstinline{double} greater than 0. Only relevant for the \lstinline{method} \lstinline{MGF_DCIM}. Set the relative tolerance below which eigenvalues are to be ignored in the application of the GPOF method~\cite{gpof} in the DCIM.\@ Default: \lstinline{1.0e-16}.
 
-.. .. \item \lstinline{components}: \lstinline{std::vector<bool>} of size 5. Choose which of the 5 unique formulation-C components~\cite{MGF02} should be computed. Default: \lstinline{1, 1, 1, 1, 1}.
+.. .. components : \lstinline{std::vector<bool>} of size 5. Choose which of the 5 unique formulation-C components~\cite{MGF02} should be computed. Default: \lstinline{1, 1, 1, 1, 1}.
 
 
 References
