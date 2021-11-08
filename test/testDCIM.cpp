@@ -17,10 +17,12 @@
 
 // -----------------------------------------------------------
 
-// The basic usage of Strata is demonstrated in this example.
 // The Michalski-Zheng formulation-C MGF is computed using
-// numerical integration for the example in Fig. 3 of
+// the two-level DCIM for the example in Fig. 3 of
 // Ling, Jin, IEEE Microw. Guided Wave Lett., 2000.
+// Important note: typically, one would need surface wave pole
+// extraction at high frequencies, where DCIM loses accuracy.
+// Surface wave pole extraction has not yet been implemented.
 
 // -----------------------------------------------------------
 
@@ -39,7 +41,7 @@ int main(int argc, char** argv)
 {
 
 	std::cout << "===========================" << std::endl;
-	std::cout << "TestMGF()" << std::endl;
+	std::cout << "TestDCIM()" << std::endl;
 	std::cout << "===========================" << std::endl;
 
     std::string tech_file, out_file;
@@ -51,7 +53,7 @@ int main(int argc, char** argv)
 	else if (argc < 3)
 	{
 		tech_file = argv[1];
-		out_file = "MGFdata.txt";
+		out_file = "MGFdata_DCIM.txt";
 	}
 	else
 	{
@@ -98,9 +100,21 @@ int main(int argc, char** argv)
 	strata::logspace(std::log10(x_obs_min), std::log10(x_obs_max), Nx, x_vec);
 
 
-	// ====== Initialize the MGF class ======
+	// ====== Set z nodes for computing the complex images ======
 
-	// In this example, we'll compute the MGF using straightforward numerical integration
+	// Complex images are generated for each possible pair of z nodes.
+	// When computing the MGF for arbitrary source and observation coordinates:
+	// - along the z axis, the nearest pair of source and observation z nodes is chosen (0-order interpolation).
+	
+	// In this example, only two points are needed along z
+	std::vector<double> z_nodes = {z_src, z_obs};
+
+	// Provide the layer manager with the z nodes
+	lm.ClearNodes_z();
+	lm.InsertNodes_z(z_nodes);
+
+
+	// ====== Initialize the MGF class ======
 	
 	// This class stores all the settings we want to use
 	MGF_settings s;
@@ -108,15 +122,28 @@ int main(int argc, char** argv)
 	// This class is the "engine" which will compute the MGF
 	MGF mgf;
 
-	// Tell the class that we want to use the numerical integration method
-	s.method = MGF_INTEGRATE;
+	// Tell the class that we want to use the DCIM.
+	s.method = MGF_DCIM;
 
-	// Initialize the class with the given stackup and chosen settings
+	// One, two, and three levels of DCIM are supported by Strata
+	// s.DCIM_method = DCIM_ONE_LEVEL;
+	s.DCIM_method = DCIM_TWO_LEVEL;
+	// s.DCIM_method = DCIM_THREE_LEVEL;
+
+	// One can control the tolerances for the GPOF exponential fitting algorithm
+	s.tol_svd = 1.0e-4;
+	s.tol_eig = 1.0e-16;
+
+	// One can also set an upper bound on the number of images to keep. A negative number means no bound is set.
+	s.max_num_images = -1;
+
+	// Initialize the class with the given stackup and chosen settings.
+	// The interpolation table will be generated at this point, so the initialization step could take a while.
 	mgf.Initialize(f, lm, s);
 
 
 	// ====== Compute the MGF ======
-	
+
 	// Create an output file where the MGF will be exported for post-processing
 	std::ofstream outfile(out_file);
 
@@ -134,7 +161,7 @@ int main(int argc, char** argv)
 	int i = lm.FindLayer(z_src);
 	int m = lm.FindLayer(z_obs);
 	mgf.SetLayers(i, m); // Source first, observation second
-
+	
 	for (int ii = 0; ii < Nx; ii++)
 	{
 

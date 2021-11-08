@@ -81,7 +81,10 @@ def main():
     refname = "Ling, Jin, 2000, Fig. 3"
 
     reffiles = ["./fig3_Gxx.csv", "./fig3_Gzx.csv", "./fig3_Gzz.csv", "./fig3_Gphi.csv"]
-    testfile = "./MGFdata.txt"
+    # testfile = "./MGFdata.txt"
+    # testfile = "./MGFdata_interp.txt"
+    # testfile = "./MGFdata_DCIM.txt"
+    testfile = "./MGFdata_singularity.txt"
 
     refscales = [1.0, 1.0, 1.0, 1.0]
 

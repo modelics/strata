@@ -24,7 +24,7 @@ extract_homogeneous : {true, false}
     Default: false.
 
 extract_singularities : {true, false}
-    Only relevant when either ``extract_quasistatic`` or ``extract_homogeneous`` is ``true``. Choose whether to extract weakly and strongly singular terms, and return the multiplicative coefficients necessary to later add back the singular terms. See the example ``testSingularities.cpp``.
+    Only relevant when either ``extract_quasistatic`` or ``extract_homogeneous`` is ``true``. Choose whether to extract weakly and strongly singular terms, and return the multiplicative coefficients necessary to later add back the singular terms. See the example ``testSingularity.cpp``.
     Default: *false*.
 
 verbose : {true, false}

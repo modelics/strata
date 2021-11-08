@@ -17,10 +17,31 @@
 
 // -----------------------------------------------------------
 
-// The basic usage of Strata is demonstrated in this example.
 // The Michalski-Zheng formulation-C MGF is computed using
 // numerical integration for the example in Fig. 3 of
-// Ling, Jin, IEEE Microw. Guided Wave Lett., 2000.
+// Ling, Jin, IEEE Microw. Guided Wave Lett., 2000. 
+// When computing MoM integrals with numerical quadrature
+// for overlapping or nearby mesh elements, one typically
+// extracts the singularity of the Green's function by 
+// expanding exp(-jkr)/r in a Taylor series. The 1/r term
+// of the series is removed, and the remainder is used
+// for the quadrature. The integral over the source element
+// for the 1/r term is computed separately using an 
+// analytical or semi-analytical approach (e.g., Gibson 2014).
+// The same thing can be done with the MGF by extracting the
+// quasistatic contribution in spectral domain and adding it
+// back in spatial domain. When adding it back in spatial
+// domain, each quasistatic term which has a 1/r behaviour
+// is expanded in a Taylor series, and the 1/r term is
+// removed, in anticipation of the user computing 1/r type
+// integrals separately. The only difference is that in the
+// quasistatic MGF, there are several terms with a 1/r
+// behaviour, and some have multiplicative factors which
+// depend on the layer materials etc. So, to add these 1/r
+// terms during the triangle integration, the user needs to
+// also know all these multiplicative factors. This example
+// shows how to do this singularity extraction and then add
+// back the 1/r terms along with their corresponding factors.
 
 // -----------------------------------------------------------
 
@@ -39,7 +60,7 @@ int main(int argc, char** argv)
 {
 
 	std::cout << "===========================" << std::endl;
-	std::cout << "TestMGF()" << std::endl;
+	std::cout << "TestSingularity()" << std::endl;
 	std::cout << "===========================" << std::endl;
 
     std::string tech_file, out_file;
@@ -51,7 +72,7 @@ int main(int argc, char** argv)
 	else if (argc < 3)
 	{
 		tech_file = argv[1];
-		out_file = "MGFdata.txt";
+		out_file = "MGFdata_singularity.txt";
 	}
 	else
 	{
@@ -99,8 +120,6 @@ int main(int argc, char** argv)
 
 
 	// ====== Initialize the MGF class ======
-
-	// In this example, we'll compute the MGF using straightforward numerical integration
 	
 	// This class stores all the settings we want to use
 	MGF_settings s;
@@ -110,6 +129,10 @@ int main(int argc, char** argv)
 
 	// Tell the class that we want to use the numerical integration method
 	s.method = MGF_INTEGRATE;
+
+	// The singularity extraction requires either the quasistatic MGF or the homogeneous Green's function to be extracted in spectral domain and added back in spatial domain
+	s.extract_quasistatic = true;
+	s.extract_singularities = true;
 
 	// Initialize the class with the given stackup and chosen settings
 	mgf.Initialize(f, lm, s);
@@ -155,6 +178,19 @@ int main(int argc, char** argv)
 		// The dyadic MGF components are now stored in G_dyadic, while the scalar MGF is stored in G_phi.
 
 
+		// ====== Add singular terms ======
+
+		// Add back the 1/r singular terms with the appropriate multiplicative factors.
+		// In a real MoM context with a Galerkin scheme, r could be 0, so one would first integrate 1/r over the mesh element and then add the result.
+
+		double rho = std::sqrt(std::pow(x_diff, 2) + std::pow(y_diff, 2));
+		double r = std::sqrt(std::pow(rho, 2) + std::pow(z_obs - z_src, 2));
+
+		for (int jj = 0; jj < 9; jj++)
+			G_dyadic[jj] += mgf.GetSingularityFactor(jj)/r;
+		G_phi += mgf.GetSingularityFactor(-1)/r;
+
+
 		// ====== Optional modifications to the output ======
 
 		// With reference to Michalski, Zheng, TAP 1990, 38 (3), equations (50)--(53), the MGF we computed above ** does include ** the cos and sin pre-factors. However, in literature, the MGF is often reported without these pre-factors. Therefore, for the purpose of this example, and to make direct comparisons to data from literature, those prefactors are cancelled out below. This section of code would not be needed in an actual MoM-type application.
@@ -178,7 +214,6 @@ int main(int argc, char** argv)
 		// ====== Export data to the output text file ======
 
 		// Lateral separation
-		double rho = std::sqrt( std::pow(x_diff, 2) + std::pow(y_diff, 2) );
 		outfile << rho << " " << 
 				std::abs(G_dyadic[0]) << " " << std::abs(G_dyadic[1]) << " " << std::abs(G_dyadic[2]) << " " << 
 				std::abs(G_dyadic[3]) << " " << std::abs(G_dyadic[4]) << " " << std::abs(G_dyadic[5]) << " " << 

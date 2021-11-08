@@ -17,9 +17,8 @@
 
 // -----------------------------------------------------------
 
-// The basic usage of Strata is demonstrated in this example.
 // The Michalski-Zheng formulation-C MGF is computed using
-// numerical integration for the example in Fig. 3 of
+// an interpolation table for the example in Fig. 3 of
 // Ling, Jin, IEEE Microw. Guided Wave Lett., 2000.
 
 // -----------------------------------------------------------
@@ -39,7 +38,7 @@ int main(int argc, char** argv)
 {
 
 	std::cout << "===========================" << std::endl;
-	std::cout << "TestMGF()" << std::endl;
+	std::cout << "TestInterp()" << std::endl;
 	std::cout << "===========================" << std::endl;
 
     std::string tech_file, out_file;
@@ -51,7 +50,7 @@ int main(int argc, char** argv)
 	else if (argc < 3)
 	{
 		tech_file = argv[1];
-		out_file = "MGFdata.txt";
+		out_file = "MGFdata_interp.txt";
 	}
 	else
 	{
@@ -98,9 +97,34 @@ int main(int argc, char** argv)
 	strata::logspace(std::log10(x_obs_min), std::log10(x_obs_max), Nx, x_vec);
 
 
-	// ====== Initialize the MGF class ======
+	// ====== Create the interpolation grid ======
 
-	// In this example, we'll compute the MGF using straightforward numerical integration
+	// The interpolation grid consists of nodes along the z and rho axes.
+	// When computing the MGF for arbitrary source and observation coordinates:
+	// - along the z axis, the nearest z-node is chosen (0-order interpolation), and,
+	// - along the rho axis, Lagrange polynomial interpolation of a given order is performed.
+	
+	// In this example, only two points are needed along z
+	std::vector<double> z_nodes = {z_src, z_obs};
+
+	// Along rho, we'll pick 5 samples per wavelength based on the layer with maximum permittivity (12.5)
+	double lambda = lambda0/std::sqrt(12.5);
+	double electrical_size = (x_obs_max - x_obs_min)/lambda;
+	int N_rho = 5.0*electrical_size;
+
+	// Strata comes with Matlab-like linspace and logspace functions for convenience
+	std::vector<double> rho_nodes;
+	strata::linspace(std::sqrt(std::pow(x_obs_min, 2) + std::pow(y_obs, 2)), std::sqrt(std::pow(x_obs_max, 2) + std::pow(y_obs, 2)), N_rho, rho_nodes);
+
+	// Provide the layer manager with the z and rho nodes
+	lm.ClearNodes_z();
+	lm.InsertNodes_z(z_nodes);
+
+	lm.ClearNodes_rho();
+	lm.InsertNodes_rho(rho_nodes);
+
+
+	// ====== Initialize the MGF class ======
 	
 	// This class stores all the settings we want to use
 	MGF_settings s;
@@ -108,15 +132,23 @@ int main(int argc, char** argv)
 	// This class is the "engine" which will compute the MGF
 	MGF mgf;
 
-	// Tell the class that we want to use the numerical integration method
-	s.method = MGF_INTEGRATE;
+	// Tell the class that we want to use the interpolation method.
+	s.method = MGF_INTERPOLATE;
 
-	// Initialize the class with the given stackup and chosen settings
+	// For source and observation points close to each other, the interpolation can be inaccurate due to the singularity of the MGF.
+	// So, instruct the MGF engine to extract the quasistatic part in the spectral domain, and then add it back in the spatial domain analytically.
+	s.extract_quasistatic = true;
+
+	// Polynomial interpolation order
+	s.order = 3;
+
+	// Initialize the class with the given stackup and chosen settings.
+	// The interpolation table will be generated at this point, so the initialization step could take a while.
 	mgf.Initialize(f, lm, s);
 
 
 	// ====== Compute the MGF ======
-	
+
 	// Create an output file where the MGF will be exported for post-processing
 	std::ofstream outfile(out_file);
 
@@ -134,7 +166,7 @@ int main(int argc, char** argv)
 	int i = lm.FindLayer(z_src);
 	int m = lm.FindLayer(z_obs);
 	mgf.SetLayers(i, m); // Source first, observation second
-
+	
 	for (int ii = 0; ii < Nx; ii++)
 	{
 
