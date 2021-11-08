@@ -65,7 +65,7 @@ python3 makeplots.py
 ```
 You should see the following plot:
 
-![Results of testMGF.cpp](https://github.com/modelics/strata/main/doc/source/figures/plots.png?raw=true)
+![Results of testMGF.cpp](doc/source/figures/plots.png?raw=true)
 
 ## Features
 
