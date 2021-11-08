@@ -1,5 +1,24 @@
 #!/usr/bin/env python
 
+# Author: Shashwat Sharma
+
+# Copyright 2021 Shashwat Sharma and Piero Triverio
+
+# This file is part of Strata.
+
+# Strata is free software: you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation, either version 3 of the License, or
+# (at your option) any later version.
+
+# Strata is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+
+# You should have received a copy of the GNU General Public License
+# along with Strata.  If not, see <https://www.gnu.org/licenses/>.
+
 import numpy as np
 import matplotlib.pyplot as plt
 from matplotlib import rc
@@ -81,10 +100,10 @@ def main():
     refname = "Ling, Jin, 2000, Fig. 3"
 
     reffiles = ["./fig3_Gxx.csv", "./fig3_Gzx.csv", "./fig3_Gzz.csv", "./fig3_Gphi.csv"]
-    # testfile = "./MGFdata.txt"
+    testfile = "./MGFdata.txt"
     # testfile = "./MGFdata_interp.txt"
     # testfile = "./MGFdata_DCIM.txt"
-    testfile = "./MGFdata_singularity.txt"
+    # testfile = "./MGFdata_singularity.txt"
 
     refscales = [1.0, 1.0, 1.0, 1.0]
 

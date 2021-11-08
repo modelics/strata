@@ -1,3 +1,5 @@
+// Author: Shashwat Sharma
+
 // Copyright 2021 Shashwat Sharma and Piero Triverio
 
 // This file is part of Strata.
@@ -14,8 +16,6 @@
 
 // You should have received a copy of the GNU General Public License
 // along with Strata.  If not, see <https://www.gnu.org/licenses/>.
-
-// Created on: Jan 10, 2019
 
 #include "coordinate_system.hpp"
 

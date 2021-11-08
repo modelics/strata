@@ -1,3 +1,5 @@
+// Author: Shashwat Sharma
+
 // Copyright 2021 Shashwat Sharma and Piero Triverio
 
 // This file is part of Strata.

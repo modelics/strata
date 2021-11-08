@@ -52,4 +52,5 @@ doc/build*
 external/*
 !external/AmosBessel.tar.gz
 !external/boost*.tar.gz
-
+!doc/source/figures/*
+!doc/strata.pdf

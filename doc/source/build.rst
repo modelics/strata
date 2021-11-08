@@ -56,3 +56,30 @@ Strata is designed for UNIX-based operating systems, and has been tested on
 * CentOS 7
 * macOS Catalina 10.15.6
 
+**Note**: the documentation is generated automatically during the build process.
+
+Run your first test case
+------------------------
+
+A set of example layer definition files and test cases is provided in the ``test`` directory.
+The most basic test case is in ``test/testMGF.cpp``, which takes as input the layer definition file (see ``doc/strata.html`` or ``doc/strata.pdf`` for details) and a name for the output file.
+From within the ``build`` folder, run
+
+.. code-block:: bash
+
+    ./testMGF ../test/examples/ling_jin_2000/layers.yaml ../test/examples/ling_jin_2000/MGFdata.txt
+
+This will compute the MGF for a simple example and store the reuslts in the file ``test/examples/ling_jin_2000/MGFdata.txt``.
+Now, assuming you have Python 3 installed, you can plot the computed MGF:
+
+.. code-block:: bash
+
+    cd ../test/examples/ling_jin_2000
+    python3 makeplots.py
+
+You should see the following plot:
+
+.. image:: figures/plots.png
+    :align: center
+    :width: 80 %
+
