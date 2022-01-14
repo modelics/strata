@@ -107,6 +107,19 @@ We request that you acknowledge the authors of Strata by citing the following:
 	month={Dec.},
 	address = {Singapore}}
 ```
+## Issues and Improvements
+
+We encourage users to report problems and suggest improvements by opening issues within the GitHub environment.
+
+We also encourage users to help in our goal of providing a high-quality library for layered medium Green's functions by contributing features and new formulations.
+
+## Known Pitfalls
+
+* This library was originally developed for chip-level structures where conductors are embedded in dielectric layers, as opposed to printed circuit-like structures, where the metal is placed at the top of a substrate. I.e., there cannot be source or observation points in the upper half-space - all points must lie inside a layer. To model printed circuit structures, create a phantom air layer above the substrate, and place the structure within it. Note that no two layers are allowed to have identical material properties - typically, if this happens, the layers are automatically merged into a single layer. However, in the case of the phantom air layer, you must make the relative permittivity of the phantom layer slightly different from that of air (e.g., 1.001) to avoid numerical issues.
+
+* Again, because the upper half-space is not considered a layer, our indexing scheme is offset from the scheme in [[1]](#mgf01). In [[1]](#mgf01), the indexing starts from the upper half-space, which has index 0. In Strata, the first layer has index 0, not the upper half-space.
+
+* These comments also apply to the lower half-space.
 
 ## References
 
