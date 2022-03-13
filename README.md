@@ -121,6 +121,12 @@ We also encourage users to help in our goal of providing a high-quality library 
 
 * These comments also apply to the lower half-space.
 
+## Related Projects
+
+This is a list of related open-source projects by other authors - please let us know if some projects were missed.
+
+* A Matlab and Fortran library for computing the MGF for the case of two half spaces can be found [here](https://github.com/UniPD-DII-ETCOMP/Half_Space_Green_A_Phi).
+
 ## References
 
 <a name="mgf01"></a>[1] K. A. Michalski and D. Zheng, "Electromagnetic scattering and radiation by surfaces of arbitrary shape in layered media. I. theory," *IEEE Trans. Antennas Propag.*, vol. 38, no. 3, pp. 335–344, Mar. 1990.

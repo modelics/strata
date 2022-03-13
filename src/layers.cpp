@@ -46,7 +46,7 @@ using namespace strata;
 // Interface - layer management
 // ==================================================================================
 
-/*! \brief Function to parse a given technology file and populate layer data.*/
+/*! \brief Function to parse a given technology file and populate layer data. Note that the argument "units" is only used if the tech file is in the (deprecated) .tech format.*/
 void LayerManager::ProcessTechFile(std::string tech_file, double units)
 {
 

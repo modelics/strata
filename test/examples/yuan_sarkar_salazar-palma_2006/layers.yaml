@@ -1,0 +1,20 @@
+
+unit: mm # applies to all spatial coordinates
+
+dielectric_layers:
+
+    L1:
+        {zmin: 0, h: 1, epsr: 12.6, mur: 1, sigma: 0}
+
+top_halfspace:
+    {epsr: 1, mur: 1, sigma: 0}
+
+bottom_halfspace:
+    {epsr: 1, mur: 1, sigma: -1}
+
+# Other analysis info:
+# z_src = 1 mm
+# z_obs = 1 mm
+# f = 30 GHz
+# fig3: Gphi
+

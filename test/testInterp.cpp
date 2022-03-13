@@ -65,7 +65,7 @@ int main(int argc, char** argv)
 
 	// Create a layer management object and parse the layer file
 	LayerManager lm;
-	lm.ProcessTechFile(tech_file, 1.0e-9);
+	lm.ProcessTechFile(tech_file);
 
 	// Set the analysis frequency and wave number
 	double f = 30.0e9;

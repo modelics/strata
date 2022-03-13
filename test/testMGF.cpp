@@ -66,7 +66,7 @@ int main(int argc, char** argv)
 
 	// Create a layer management object and parse the layer file
 	LayerManager lm;
-	lm.ProcessTechFile(tech_file, 1.0e-9);
+	lm.ProcessTechFile(tech_file);
 
 	// Set the analysis frequency and wave number
 	double f = 30.0e9;
@@ -86,6 +86,10 @@ int main(int argc, char** argv)
 	// ====== Set up the source and observation points ======
 
 	// Set the source and observation (obs) points
+	// Uncomment / comment for the appropriate example
+
+	// ------ Ling, Jin, 2000 ------
+
 	// For this example, we'll sweep the observation point along the x axis from 10^{-4} wavelengths to 10 wavelengths away from the source point
 	
 	double x_src = 0.0, y_src = 0.0, z_src = 0.4e-3;
@@ -94,7 +98,20 @@ int main(int argc, char** argv)
 	int Nx = 500; // Number of points in the sweep
 	double x_obs_min = std::abs(1.6e-4*lambda0);
 	double x_obs_max = std::abs(1.6e1*lambda0);
-		
+
+	// ------ Yuan, Sarkar, Salazar-Palma, 2006 ------
+
+	// For this example, we'll sweep the observation point along the x axis from 10^{-3} wavelengths to 10^3 wavelengths away from the source point
+	
+	// double x_src = 0.0, y_src = 0.0, z_src = 1.0e-3;
+	// double y_obs = 0.0, z_obs = 1.0e-3;
+	
+	// int Nx = 500; // Number of points in the sweep
+	// double x_obs_min = std::abs(1.6e-4*lambda0);
+	// double x_obs_max = std::abs(1.6e2*lambda0);
+	
+	// ------ Generate the points ------
+
 	// We can use the Matlab-like linspace or logspace functions to create linearly- or logarithmically-spaced vectors points, provided via the Strata namespace
 	std::vector<double> x_vec;
 	strata::logspace(std::log10(x_obs_min), std::log10(x_obs_max), Nx, x_vec);

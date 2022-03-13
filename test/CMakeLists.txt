@@ -46,4 +46,7 @@ add_executable(testSingularity ${SRC_DIR}/testSingularity.cpp)
 target_include_directories(testSingularity PRIVATE ${INC_DIR} ${STRATA_INC})
 target_link_libraries(testSingularity ${STRATA_LIB})
 
+add_executable(testSpectralMGF ${SRC_DIR}/testSpectralMGF.cpp)
+target_include_directories(testSpectralMGF PRIVATE ${INC_DIR} ${STRATA_INC})
+target_link_libraries(testSpectralMGF ${STRATA_LIB})
 
