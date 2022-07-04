@@ -399,6 +399,11 @@ void MGF::ComputeCurlMGF(double x_diff, double y_diff, double z, double zp, std:
 		throw std::logic_error("[ERROR] MGF::ComputeCurlMGF(): Must call MGF::SetLayers() before computing the MGF.");
 	}
 
+	if (!s.compute_curl)
+	{
+		throw std::logic_error("[ERROR] MGF::ComputeCurlMGF(): When initializing with MGF::Initialize(), the setting `compute_curl` in the instance of MGF_settings should have been set to true, but was found to be false.");
+	}
+
 	// if ((z > lm.layers[0].zmax || z < lm.layers.back().zmin) ||
 	// 	(zp > lm.layers[0].zmax || zp < lm.layers.back().zmin))
 	// {
@@ -526,12 +531,17 @@ void MGF::ComputeCurlQMGF(double x_diff, double y_diff, double z, double zp, std
 	
 	if (!initialized)
 	{
-		throw std::logic_error("[ERROR] MGF::ComputeCurlMGF(): Must call MGF::Initialize() before computing the MGF.");
+		throw std::logic_error("[ERROR] MGF::ComputeCurlQMGF(): Must call MGF::Initialize() before computing the MGF.");
 	}
 
 	if (!layers_set)
 	{
-		throw std::logic_error("[ERROR] MGF::ComputeCurlMGF(): Must call MGF::SetLayers() before computing the MGF.");
+		throw std::logic_error("[ERROR] MGF::ComputeCurlQMGF(): Must call MGF::SetLayers() before computing the MGF.");
+	}
+
+	if (!s.compute_curl)
+	{
+		throw std::logic_error("[ERROR] MGF::ComputeCurlQMGF(): When initializing with MGF::Initialize(), the setting `compute_curl` in the instance of MGF_settings should have been set to true, but was found to be false.");
 	}
 
 	// if ((z > lm.layers[0].zmax || z < lm.layers.back().zmin) ||

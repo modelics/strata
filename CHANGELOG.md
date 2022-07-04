@@ -1,5 +1,10 @@
 Changes to Strata are listed in this file.
 
+## [1.0.2] - Unreleased - 2022-07-?
+
+- Added a check when computing the curl of the MGF to make sure `MGF_settings::compute_curl` was set to `true`, so that all curl-related initializations are done (in response to issue #1 opened by @Riarrieta).
+- Fixed a mistake in README.md for installing Strata with a pre-existing OpenBLAS build (in response to issue #2 opened by @pedrohnv).
+
 ## [1.0.1] - 2022-03-13
 
 - Added another example with digitized data from Yuan, Sarkar, Salazar-Palma, TMTT, 2006; modified `testMGF.cpp` accordingly.
