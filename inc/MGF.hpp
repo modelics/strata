@@ -190,7 +190,8 @@ public:
 	std::vector<std::vector<table_entry<4>>> CurlMGF_table;
 
 	// Maps
-	std::map<double, int> z_to_idx, rho_to_idx;
+	std::map<std::pair<int, double>, int> z_to_idx;
+	std::map<double, int> rho_to_idx;
 	std::map<std::pair<int, int>, int> idxpair_to_row;
 	
 	// ------ Switchboard ------
