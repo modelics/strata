@@ -57,7 +57,7 @@ set(WITH_OPENBLAS_LIB "" CACHE PATH "Path to an existing OpenBLAS static library
 set(LIB_EXT ${CMAKE_BINARY_DIR}/external)
 set(BUILD_EXT ${LIB_EXT}/builds)
 
-# ------ OpenBLAS 0.3.15 ------
+# ------ OpenBLAS 0.3.29 ------
 
 set(BLA_VENDOR OpenBLAS)
 if ((NOT WITH_OPENBLAS_INC STREQUAL "") AND
@@ -70,8 +70,8 @@ else()
     message(STATUS "Could NOT find OpenBLAS")
     set(OPENBLAS_ROOT ${BUILD_EXT}/openblas)
     ExternalProject_Add(external_openblas
-        URL https://github.com/xianyi/OpenBLAS/releases/download/v0.3.15/OpenBLAS-0.3.15.tar.gz
-        URL_HASH SHA256=30a99dec977594b387a17f49904523e6bc8dd88bd247266e83485803759e4bbe
+        URL https://github.com/OpenMathLib/OpenBLAS/releases/download/v0.3.29/OpenBLAS-0.3.29.tar.gz
+        URL_HASH MD5=853a0c5c0747c5943e7ef4bbb793162d
         PREFIX ${OPENBLAS_ROOT}
         BUILD_IN_SOURCE ON
         CONFIGURE_COMMAND ""
