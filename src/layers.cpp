@@ -123,13 +123,7 @@ void LayerManager::ProcessTechFile_yaml(std::string tech_file, double units)
 
 			double epsr = layer["epsr"].as<double> (1.0);
 			double mur = layer["mur"].as<double> (1.0);
-			double sigma ;
-			if (obj["sigma"].as<std::string>("inf") == "inf") {
-				sigma = -1 ;
-			}
-			else {
-				sigma = obj["sigma"].as<double> (0);
-			}
+			double sigma = obj["sigma"].as<double> (0);;
 			double sigmamu = layer["sigmamu"].as<double> (0.0);
 
 			// Add this layer to the full layer-set
