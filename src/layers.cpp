@@ -149,12 +149,7 @@ void LayerManager::ProcessTechFile_yaml(std::string tech_file, double units)
 	{
 		_epsr_top = top["epsr"].as<double> (1.0);
 		_mur_top = top["mur"].as<double> (1.0);
-		if (top["sigma"].as<std::string>("inf") == "inf") {
-			_sigma_top = -1 ;
-		}
-		else {
-			_sigma_top = top["sigma"].as<double> (0.0);
-		}
+		_sigma_top = top["sigma"].as<std::string>("inf")=="inf" ? -1 : top["sigma"].as<double> (0.0);
 
 		if (_sigma_top < 0)
 		{
@@ -170,12 +165,7 @@ void LayerManager::ProcessTechFile_yaml(std::string tech_file, double units)
 	{
 		_epsr_bot = bot["epsr"].as<double> (1.0);
 		_mur_bot = bot["mur"].as<double> (1.0);
-		if (bot["sigma"].as<std::string>("inf") == "inf") {
-			_sigma_bot = -1 ;
-		}
-		else {
-			_sigma_bot = bot["sigma"].as<double> (0.0);
-		}
+		_sigma_bot = bot["sigma"].as<std::string>("inf")=="inf" ? -1 : bot["sigma"].as<double> (0.0);
 
 		if (_sigma_bot < 0)
 		{
