@@ -135,7 +135,7 @@ set(YAML_INC "${YAML_CPP_ROOT}/include")
 
 # ------ Documentation ------
 
-add_custom_target(doc COMMAND cd ${CMAKE_CURRENT_SOURCE_DIR}/doc && ./generate_docs.sh)
+#add_custom_target(doc COMMAND cd ${CMAKE_CURRENT_SOURCE_DIR}/doc && ./generate_docs.sh)
 
 
 # ====== Strata ======
@@ -174,9 +174,9 @@ target_link_libraries(strata ${OPENBLAS_LIB} ${AmosBessel_LIB} ${YAML_LIB})
 target_include_directories(strata PRIVATE ${INCLUDE_DIR})
 if ((WITH_OPENBLAS_INC STREQUAL "") OR
     (WITH_OPENBLAS_LIB STREQUAL ""))
-    add_dependencies(strata external_openblas external_amosbessel external_yaml_cpp external_boost doc)
+    add_dependencies(strata external_openblas external_amosbessel external_yaml_cpp external_boost)
 else ()
-    add_dependencies(strata external_amosbessel external_yaml_cpp external_boost doc)
+    add_dependencies(strata external_amosbessel external_yaml_cpp external_boost)
 endif()
 
 install(TARGETS strata DESTINATION ${CMAKE_INSTALL_PREFIX}/lib)

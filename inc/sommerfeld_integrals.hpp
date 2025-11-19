@@ -47,6 +47,7 @@
 #include <boost/math/quadrature/tanh_sinh.hpp>
 #include <boost/math/quadrature/exp_sinh.hpp> 
 #include <boost/math/quadrature/gauss_kronrod.hpp>
+#include <boost/math/quadrature/trapezoidal.hpp>
 #include <boost/math/special_functions/bessel.hpp>
 #include "libAmosBessel.h"
 
@@ -476,7 +477,7 @@ template<class F>
 void GaussKronrodBoost(const F f, double a, double b, double tol, std::complex<double> &result)
 {
 	
-	const int order = 31, max_levels = 15;
+	const int order = 21, max_levels = 15;
 	double error, multiplier = 1.0;
 
 	// Make sure the integration path is from the smaller number to the larger one, for Boost compatibility.
@@ -492,6 +493,8 @@ void GaussKronrodBoost(const F f, double a, double b, double tol, std::complex<d
 	boost::math::quadrature::gauss_kronrod<value_type, order> integrator;
 	
 	result = integrator.integrate(f, a, b, max_levels, tol, &error);
+
+    //result = boost::math::quadrature::trapezoidal(f, a, b, 1.0e-6);
 	result *= multiplier;
 
 	return;

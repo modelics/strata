@@ -123,12 +123,12 @@ void LayerManager::ProcessTechFile_yaml(std::string tech_file, double units)
 
 			double epsr = layer["epsr"].as<double> (1.0);
 			double mur = layer["mur"].as<double> (1.0);
+			double epsr_im = layer["epsr_im"].as<double> (0.0);
 			double sigma = layer["sigma"].as<double> (0.0);
 			double sigmamu = layer["sigmamu"].as<double> (0.0);
 
 			// Add this layer to the full layer-set
-			AddLayer(zmin, zmax, epsr, mur, sigma, sigmamu);
-			
+			AddLayer(zmin, zmax, epsr, mur, sigma, sigmamu, epsr_im);
 		}
 	}
 	else
@@ -143,7 +143,7 @@ void LayerManager::ProcessTechFile_yaml(std::string tech_file, double units)
 	{
 		_epsr_top = top["epsr"].as<double> (1.0);
 		_mur_top = top["mur"].as<double> (1.0);
-		_sigma_top = top["sigma"].as<double> (0.0);
+		_sigma_top = top["sigma"].as<std::string>("")=="inf" ? -1 : top["sigma"].as<double> (0.0);
 
 		if (_sigma_top < 0)
 		{
@@ -159,7 +159,7 @@ void LayerManager::ProcessTechFile_yaml(std::string tech_file, double units)
 	{
 		_epsr_bot = bot["epsr"].as<double> (1.0);
 		_mur_bot = bot["mur"].as<double> (1.0);
-		_sigma_bot = bot["sigma"].as<double> (0.0);
+		_sigma_bot = bot["sigma"].as<std::string>("")=="inf" ? -1 : bot["sigma"].as<double> (0.0);
 
 		if (_sigma_bot < 0)
 		{
@@ -292,7 +292,7 @@ void LayerManager::ProcessTechFile_tech(std::string tech_file, double units)
 		if (layer_type == "Dielectric" || layer_type == "dielectric")
 		{
 			// Add this layer to the full layer-set
-			AddLayer(zmin, zmax, epsr, mur, sigma, sigmamu);
+			AddLayer(zmin, zmax, epsr, mur, sigma, sigmamu, 0.0);
 		}
 
 	}
@@ -308,7 +308,7 @@ void LayerManager::ProcessTechFile_tech(std::string tech_file, double units)
 
 
 /*! \brief Function to add a new layer to the layer set. It is the user's responsibility to make sure that the z_min and z_max do not overlap with the z-extent of any other layer in the set.*/
-void LayerManager::AddLayer(double zmin, double zmax, double epsr, double mur, double sigma, double sigmamu)
+void LayerManager::AddLayer(double zmin, double zmax, double epsr, double mur, double sigma, double sigmamu, double epsr_im)
 {
 
 	if (zmax - zmin <= 0.0)
@@ -336,7 +336,7 @@ void LayerManager::AddLayer(double zmin, double zmax, double epsr, double mur, d
 	}
 
 	// Create a new layer
-	Layer layer (zmin, zmax, epsr, mur, sigma, sigmamu);
+	Layer layer (zmin, zmax, epsr, mur, sigma, sigmamu, epsr_im);
 	layers.insert(layers.begin() + position, layer);
 	
 	return;
@@ -369,13 +369,13 @@ void LayerManager::SetHalfspaces(double _epsr_top, double _mur_top, double _sigm
 void LayerManager::ProcessLayers(double f)
 {
 
-	auto epsilon_complex = [] (double eps0, double epsr, double sigma, double omega)
-		{
-			if (omega > 0.0)
-				return std::complex<double> ((epsr*eps0), (-sigma/omega));
-			else
-				return std::complex<double> ((epsr*eps0), 0.0);
-		};
+	auto epsilon_complex = [] (double eps0, double epsr, double epsr_im, double sigma, double omega)
+	{
+		if (omega > 0.0)
+			return std::complex<double> ((epsr*eps0), epsr_im*eps0 + (-sigma/omega));
+		else
+			return std::complex<double> ((epsr*eps0),  epsr_im*eps0 + 0.0);
+	};
 	
 	// Make sure that any consecutive layers with the same material properties are merged
 	MergeLayersWithSameMaterial();
@@ -384,8 +384,8 @@ void LayerManager::ProcessLayers(double f)
 
 	// ------ Half space parameters ------
 
-	eps_top = epsilon_complex(eps0, epsr_top, sigma_top, omega);
-	eps_bot = epsilon_complex(eps0, epsr_bot, sigma_bot, omega);
+	eps_top = epsilon_complex(eps0, epsr_top, 0.0, sigma_top, omega);
+	eps_bot = epsilon_complex(eps0, epsr_bot, 0.0, sigma_bot, omega);
 	
 	mu_top = std::complex<double> ((mur_top * mu0), 0.0);
 	mu_bot = std::complex<double> ((mur_bot * mu0), 0.0);
@@ -411,7 +411,7 @@ void LayerManager::ProcessLayers(double f)
 
 		layers[ii].layerID = ii;
 
-		eps[ii] = epsilon_complex(eps0, layers[ii].epsr, layers[ii].sigma, omega);
+		eps[ii] = epsilon_complex(eps0, layers[ii].epsr, layers[ii].epsr_im, layers[ii].sigma, omega);
 		mu[ii] = std::complex<double> ((layers[ii].mur * mu0), 0.0);
 
 		k[ii] = omega*std::sqrt(eps[ii]*mu[ii]);
@@ -461,15 +461,90 @@ void LayerManager::ProcessLayers(double f)
 }
 
 
+/*! \brief Function to set the z nodes to tabulate multilayer Green's function.*/
+void LayerManager::SetZnodes_interp(double f, std::vector<double> &z_nodes, int N_lambda)
+{
+    // Some useful constants are provided via the Strata namespace
+    double lambda0 = 1/(f * std::sqrt(strata::eps0*strata::mu0));
+    double dis_threshold = 1e-8;
+
+    for (int ii = layers.size() - 1; ii >= 0; ii--)
+    {
+        std::vector<double> z_nodes_local;
+
+        double h = layers[ii].zmax - layers[ii].zmin;
+        double lambda = lambda0/std::sqrt(layers[ii].epsr);
+        double electrical_size = h / lambda;
+        double _Nz = N_lambda * electrical_size;
+        int Nz = (int)std::round(_Nz);
+
+        // Set the z-nodes based on the calculated number of interpolation points, note that each layer should at least have two nodes
+        double z_min_node = layers[ii].zmin + dis_threshold;
+        double z_max_node = layers[ii].zmax - dis_threshold;
+
+        // within each layer, the interpolation points are uniform
+        if (Nz > 2)
+            linspace(z_min_node,z_max_node,Nz,z_nodes_local);
+        else
+        {
+            z_nodes_local.push_back(z_min_node);
+            z_nodes_local.push_back(z_max_node);
+        }
+
+        z_nodes.insert(z_nodes.end(), z_nodes_local.begin(), z_nodes_local.end());
+    }
+
+
+
+    return ;
+
+}
+
+/*! \brief Function to set the z nodes based on the FFT grid to tabulate multilayer Green's function. Consider just object in one layer*/
+void LayerManager::SetZnodes_interpGrid(double f, std::vector<double> &z_nodes, int N_lambda, std::vector<double> grid_z)
+{
+    // Some useful constants are provided via the Strata namespace
+    double lambda0 = 1/(f * std::sqrt(strata::eps0*strata::mu0));
+    double dis_threshold = 1e-8;
+    double z_min = grid_z[0];
+    double z_max = grid_z[grid_z.size()-1];
+
+    // find which layer the nodes occupy
+    int idx_layer = FindLayer(z_min);
+
+    double h = z_max - z_min;
+    double lambda = lambda0/std::sqrt(layers[idx_layer].epsr);
+    double electrical_size = h / lambda;
+    double _Nz = N_lambda * electrical_size;
+    int Nz = (int)std::round(_Nz);
+
+
+    // within each layer, the interpolation points are uniform
+    if (Nz > 2)
+        linspace(z_min,z_max,Nz,z_nodes);
+    else
+    {
+        z_nodes.push_back(z_min);
+        //z_nodes.push_back((z_min + z_max)/2);
+        z_nodes.push_back(z_max);
+
+    }
+
+    return ;
+
+}
+
+
 /*! \brief Function to find the layer within which a particular z-coordinate exists. Returns -1 if no eligible layer was found.*/
 int LayerManager::FindLayer(double z)
 {
 
-	double tol = (layers[0].zmax - layers.back().zmin)*1.0e-15;
+	double tol = std::numeric_limits<double>::epsilon() * std::max(std::abs(z), std::abs(layers.back().zmax));
 
-	if (z > layers[0].zmax)
+
+	if (z > layers[0].zmax + tol)
 		return -1;
-	if (z < layers.back().zmin)
+	if (z < layers.back().zmin - tol)
 		return layers.size();
 
 	for (int ii = 0; ii < layers.size(); ii++)
@@ -477,8 +552,8 @@ int LayerManager::FindLayer(double z)
 		if (layers[ii].zmax - z > tol && z - layers[ii].zmin > tol)
 			// The point is in layer ii, and not at an interface
 			return ii;
-		else if (std::abs(layers[ii].zmax - z) <= tol)
-			// The point is at the top interface of this layer
+		else if (std::abs(layers[ii].zmin - z) <= tol)
+			// The point is at the bottom interface of this layer
 			return ii;
 		else if (ii == (int)(layers.size() - 1))
 			// The point must be at the bottom interface of the bottom layer
@@ -493,6 +568,18 @@ int LayerManager::FindLayer(double z)
 /*! \brief Function to print layer information for debugging and logging purposes.*/
 void LayerManager::PrintLayerData(std::ofstream *out_file, bool print_to_terminal)
 {
+	auto get_signed_imag_string = [](double imag)
+	{
+		std::string result;
+		if(imag == 0) return result;
+
+		if (imag > 0)
+			result = "+";
+		else
+			result = "-";
+		result += std::to_string(std::abs(imag)) + "j";
+		return result;
+	};
 
 	std::string message;
 
@@ -518,7 +605,7 @@ void LayerManager::PrintLayerData(std::ofstream *out_file, bool print_to_termina
 		message += "zmax: " + std::to_string(layers[ii].zmax) + "\n";
 		message += "zmin: " + std::to_string(layers[ii].zmin) + "\n";
 		message += "Height: " + std::to_string(layers[ii].h) + "\n";
-		message += "Relative permittivity: " + std::to_string(layers[ii].epsr) + "\n";
+		message += "Relative permittivity: " + std::to_string(layers[ii].epsr) + get_signed_imag_string(layers[ii].epsr_im) + "\n";
 		message += "Relative permeability: " + std::to_string(layers[ii].mur) + "\n";
 		message += "Electrical conductivity: " + std::to_string(layers[ii].sigma) + "\n";
 		if (layers_processed)
@@ -578,8 +665,19 @@ void LayerManager::InsertNodes_z(std::vector<double> &nodes)
 		// Sort and erase duplicates
 		std::sort(z_nodes[ii].begin(), z_nodes[ii].end());
 		z_nodes[ii].erase(std::unique(z_nodes[ii].begin(), z_nodes[ii].end(), [tol](double a, double b) { return std::abs(a - b) <= tol; }), z_nodes[ii].end());
-
 	}
+
+    // Find the boundary nodes
+
+    for (int ii = 0; ii < layers.size(); ii++)
+    {
+        if (!z_nodes[ii].empty())
+        {
+            boundary_nodes.insert(z_nodes[ii].front());
+            boundary_nodes.insert(z_nodes[ii].back());
+        }
+    }
+
 
 	return;
 
@@ -740,6 +838,7 @@ void LayerManager::MergeLayersWithSameMaterial(double tol)
 		// Check if the layer above is of the same material as this one
 		if (std::abs(layers[ii].epsr - layers[jj].epsr) < tol &&
 		    std::abs(layers[ii].mur - layers[jj].mur) < tol &&
+		    std::abs(layers[ii].epsr_im - layers[jj].epsr_im) < tol &&
 		    std::abs(layers[ii].sigma - layers[jj].sigma) < tol &&
 		    std::abs(layers[ii].sigmamu - layers[jj].sigmamu) < tol)
 		{
