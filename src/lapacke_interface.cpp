@@ -28,9 +28,14 @@
 
 
 #include <iostream>
- 
-#include <cblas.h>
-#include <lapacke.h>
+
+#if defined(USE_MKL)
+	#include <mkl.h>
+	#include <mkl_lapacke.h>
+#else
+	#include <cblas.h>
+	#include <lapacke.h>
+#endif
 
 #include "lapacke_interface.hpp"
 
