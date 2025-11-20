@@ -133,17 +133,23 @@ set(AmosBessel_INC "${AMOSBESSEL_ROOT}/include/AmosBessel")
 
 # ------ yaml-cpp 0.6.3 ------
 
-set(YAML_CPP_ROOT ${BUILD_EXT}/yaml-cpp)
-ExternalProject_Add(external_yaml_cpp
-    GIT_REPOSITORY https://github.com/jbeder/yaml-cpp.git
-    GIT_TAG 9a3624205e8774953ef18f57067b3426c1c5ada6
-    PREFIX ${YAML_CPP_ROOT}
-    CMAKE_ARGS -DYAML_BUILD_SHARED_LIBS=ON -DCMAKE_INSTALL_PREFIX=${YAML_CPP_ROOT}
-)
+find_package(yaml-cpp QUIET)
 
-set(YAML_LIB
-"${YAML_CPP_ROOT}/lib/${CMAKE_SHARED_LIBRARY_PREFIX}yaml-cpp${CMAKE_SHARED_LIBRARY_SUFFIX}")
-set(YAML_INC "${YAML_CPP_ROOT}/include")
+if (NOT yaml_cpp_FOUND)
+	set(YAML_CPP_ROOT ${BUILD_EXT}/yaml-cpp)
+	ExternalProject_Add(external_yaml_cpp
+	    GIT_REPOSITORY https://github.com/jbeder/yaml-cpp.git
+	    GIT_TAG 9a3624205e8774953ef18f57067b3426c1c5ada6
+	    PREFIX ${YAML_CPP_ROOT}
+	    CMAKE_ARGS -DYAML_BUILD_SHARED_LIBS=ON -DCMAKE_INSTALL_PREFIX=${YAML_CPP_ROOT}
+	)
+	
+	set(YAML_LIB "${YAML_CPP_ROOT}/lib/${CMAKE_SHARED_LIBRARY_PREFIX}yaml-cpp${CMAKE_SHARED_LIBRARY_SUFFIX}")
+	set(YAML_INC "${YAML_CPP_ROOT}/include")
+else()
+	set(YAML_LIB ${yaml-cpp_INCLUDE_DIRS})
+	set(YAML_INC ${yaml-cpp_LIBRARIES})	
+endif()
 
 # ------ Documentation ------
 
