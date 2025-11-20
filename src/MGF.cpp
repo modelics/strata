@@ -1037,12 +1037,15 @@ void MGF::GenerateTableMaps()
 
 	// The int pair <ii, zz> is mapped to a unique int using Szudzik's function.
 	// Reference: https://stackoverflow.com/questions/919612/mapping-two-integers-to-one-in-a-unique-and-deterministic-way
+	int idx = 0;
 	for (int ii = 0; ii < lm.z_nodes.size(); ii++)
 	{
 		for (int zz = 0; zz < lm.z_nodes[ii].size(); zz++)
 		{
-			int idx = ii >= zz ? ii*ii + ii + zz : ii + zz*zz;
-			z_to_idx.insert(std::make_pair(lm.z_nodes[ii][zz], idx));
+			//int idx = ii >= zz ? ii*ii + ii + zz : ii + zz*zz;
+			std::pair<int,double> key = {ii, lm.z_nodes[ii][zz]};
+			z_to_idx.insert(std::make_pair(key, idx));
+			idx++;
 		}
 	}
 
@@ -1075,8 +1078,8 @@ void MGF::GenerateTableMaps()
 					double zp = lm.z_nodes[ii][ss];
 					double z = lm.z_nodes[mm][tt];
 
-					int idx_z = z_to_idx[z];
-					int idx_zp = z_to_idx[zp];
+					int idx_z = z_to_idx[{mm, z}];
+					int idx_zp = z_to_idx[{ii, zp}];
 
 					idxpair_to_row.insert(std::make_pair(std::make_pair(idx_z, idx_zp), idx_row));
 
@@ -1108,62 +1111,61 @@ int MGF::GetRow(double z, double zp)
 	}
 
 
-	// ====== Locate the index of the z-node nearest to z ======
-
-	std::map<double, int>::iterator z_below = z_to_idx.lower_bound(z);
-	std::map<double, int>::iterator z_above = z_to_idx.upper_bound(z);
+	// ====== Locate the index of the z-node nearest to z using observe layer ======
+	auto z_below = z_to_idx.lower_bound({m, z});
+	auto z_above = z_to_idx.upper_bound({m, z});
 
 	int idx_z;
 	double z_found;
 
-	if (std::abs(z - z_below->first) < 1.0e-15)
+	if (std::abs(z - z_below->first.second) < 1.0e-15)
 	{
 		idx_z = z_below->second;
-		z_found = z_below->first;
+		z_found = z_below->first.second;
 	}
 	else
 	{
 		z_below--;
 	
-		if (std::abs(z - z_below->first) < std::abs(z - z_above->first))
+		if (std::abs(z - z_below->first.second) < std::abs(z - z_above->first.second))
 		{
 			idx_z = z_below->second;
-			z_found = z_below->first;
+			z_found = z_below->first.second;
 		}
 		else
 		{
 			idx_z = z_above->second;
-			z_found = z_above->first;
+			z_found = z_above->first.second;
 		}
 	}
 
 
-	// ====== Locate the index of the z-node nearest to zp ======
+	// ====== Locate the index of the z-node nearest to zp using source layer  ======
 
-	std::map<double, int>::iterator zp_below = z_to_idx.lower_bound(zp);
-	std::map<double, int>::iterator zp_above = z_to_idx.upper_bound(zp);
+	auto zp_below = z_to_idx.lower_bound({i, zp});
+	auto zp_above = z_to_idx.upper_bound({i, zp});
 
 	int idx_zp;
 	double zp_found;
 
-	if (std::abs(zp - zp_below->first) < 1.0e-15)
+	if (std::abs(zp - zp_below->first.second) < 1.0e-15)
 	{
 		idx_zp = zp_below->second;
-		zp_found = zp_below->first;
+		zp_found = zp_below->first.second;
 	}
 	else
 	{
 		zp_below--;
 	
-		if (std::abs(zp - zp_below->first) < std::abs(zp - zp_above->first))
+		if (std::abs(zp - zp_below->first.second) < std::abs(zp - zp_above->first.second))
 		{
 			idx_zp = zp_below->second;
-			zp_found = zp_below->first;
+			zp_found = zp_below->first.second;
 		}
 		else
 		{
 			idx_zp = zp_above->second;
-			zp_found = zp_above->first;
+			zp_found = zp_above->first.second;
 		}
 	}
 	
