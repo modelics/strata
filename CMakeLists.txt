@@ -23,6 +23,8 @@ include(ExternalProject)
 project(Strata)
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
+# Optionally build documentation
+option(BUILD_DOC "Build the documentation" ON)
 
 # ====== Compiler settings ======
 
@@ -99,17 +101,23 @@ endif()
 
 # ./bcp math/quadrature math/special_functions/bessel.hpp ../../../../../../../boost_1_76_0_selected --boost=../../../../../../../boost_1_76_0
 
-set(BOOST_ROOT ${BUILD_EXT}/boost_1_76_0_selected)
-ExternalProject_Add(external_boost
-    URL ${CMAKE_CURRENT_SOURCE_DIR}/external/boost_1_76_0_selected.tar.gz
-    URL_HASH SHA256=a3b5990412456c7a528c255132677644e8add4f3d6b50e864667813a9bd43afb
-    PREFIX ${BOOST_ROOT}
-    SOURCE_DIR ${LIB_EXT}/boost_1_76_0_selected
-    CONFIGURE_COMMAND tar "xzf" ${CMAKE_CURRENT_SOURCE_DIR}/external/boost_1_76_0_selected.tar.gz --strip-components=1 -C ${BOOST_ROOT}
-    BUILD_COMMAND ""
-    INSTALL_COMMAND ""
-)
-set(BOOST_INC ${BOOST_ROOT})
+find_package(Boost QUIET)
+
+if (NOT Boost_FOUND)
+    set(BOOST_ROOT ${BUILD_EXT}/boost_1_76_0_selected)
+    ExternalProject_Add(external_boost
+        URL ${CMAKE_CURRENT_SOURCE_DIR}/external/boost_1_76_0_selected.tar.gz
+        URL_HASH SHA256=a3b5990412456c7a528c255132677644e8add4f3d6b50e864667813a9bd43afb
+        PREFIX ${BOOST_ROOT}
+        SOURCE_DIR ${LIB_EXT}/boost_1_76_0_selected
+        CONFIGURE_COMMAND tar "xzf" ${CMAKE_CURRENT_SOURCE_DIR}/external/boost_1_76_0_selected.tar.gz --strip-components=1 -C ${BOOST_ROOT}
+        BUILD_COMMAND ""
+        INSTALL_COMMAND ""
+    )
+    set(BOOST_INC ${BOOST_ROOT})
+else()
+    set(BOOST_INC ${Boost_INCLUDE_DIRS})
+endif()
 
 # ------ AmosBessel ------
 
@@ -153,8 +161,9 @@ endif()
 
 # ------ Documentation ------
 
-#add_custom_target(doc COMMAND cd ${CMAKE_CURRENT_SOURCE_DIR}/doc && ./generate_docs.sh)
-
+if (BUILD_DOC)
+    add_custom_target(doc COMMAND cd ${CMAKE_CURRENT_SOURCE_DIR}/doc && ./generate_docs.sh)
+endif()
 
 # ====== Strata ======
 
@@ -199,11 +208,23 @@ SET(MGF_SRC
 add_library(strata SHARED ${MGF_SRC})
 target_link_libraries(strata ${BLAS_LIB} ${AmosBessel_LIB} ${YAML_LIB})
 target_include_directories(strata PRIVATE ${INCLUDE_DIR})
+
+# Add OpenBLAS dependency if externally downloaded
 if ((WITH_OPENBLAS_INC STREQUAL "") OR
     (WITH_OPENBLAS_LIB STREQUAL ""))
-    add_dependencies(strata external_openblas external_amosbessel external_yaml_cpp external_boost)
+    add_dependencies(strata external_openblas external_amosbessel)
 else ()
-    add_dependencies(strata external_amosbessel external_yaml_cpp external_boost)
+    add_dependencies(strata external_amosbessel)
+endif()
+
+# Add YAML-CPP dependency if externally downloaded
+if (NOT yaml_cpp_FOUND)
+    add_dependencies(strata external_yaml_cpp)
+endif()
+
+# Add Boost dependency if externally downloaded
+if (NOT Boost_FOUND)
+    add_dependencies(strata external_boost)
 endif()
 
 install(TARGETS strata DESTINATION ${CMAKE_INSTALL_PREFIX}/lib)
