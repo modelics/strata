@@ -47,9 +47,9 @@ public:
 	// ====== Storage ======
 
 	int layerID;
-	double zmax, zmin, h, epsr, sigma, mur, sigmamu;
+	double zmax, zmin, h, sigma, mur, sigmamu;
+	std::complex<double> epsr;
 	std::vector<int> objectIDs;   /// List of indices of objects that belong to this layer
-	double epsr_im; //Imaginary part of epsilon, indicating a frequency independent loss
 	std::vector<double> obj_zmin, obj_zmax;  /// Min and max z extent of each object
 
 
@@ -57,11 +57,10 @@ public:
 	
 	Layer() {};
     
-    Layer(double _zmin, double _zmax, double _epsr = 1.0, double _mur = 1.0, double _sigma = 0.0, double _sigmamu = 0.0, double _epsr_im = 0.0)
+    Layer(double _zmin, double _zmax, std::complex<double> _epsr = {1.0, 0.0}, double _mur = 1.0, double _sigma = 0.0, double _sigmamu = 0.0)
     {
 		epsr = _epsr;
 		sigma = _sigma;
-    	epsr_im = _epsr_im;
 		mur = _mur;
 		sigmamu = _sigmamu;
 
@@ -89,7 +88,7 @@ public:
 	void ProcessTechFile_yaml(std::string tech_file, double units = 1.0e-9);
 	void ProcessTechFile_tech(std::string tech_file, double units = 1.0e-9);
 	
-	void AddLayer(double zmin, double zmax, double epsr, double mur, double sigma, double sigmamu, double epsr_im);
+	void AddLayer(double zmin, double zmax, std::complex<double> epsr, double mur, double sigma, double sigmamu);
 	void SetHalfspaces(double _epsr_top, double _mur_top, double _sigma_top, double _epsr_bot, double _mur_bot, double _sigma_bot, bool _isPEC_top, bool _isPEC_bot);
 	
 	void ProcessLayers(double f);
@@ -145,6 +144,9 @@ public:
 
 	std::complex<double> eps_top, mu_top, k_top;
 	std::complex<double> eps_bot, mu_bot, k_bot;
+
+	double epsr_im_top = 0.0;
+	double epsr_im_bot = 0.0;
 
 	// ------ MGF (pre)computation nodes and settings ------
 

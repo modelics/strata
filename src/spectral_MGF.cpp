@@ -883,7 +883,9 @@ void SpectralMGF::ComputeKmi(std::array<std::complex<double>, 5> &K)
 		std::complex<double> GIh_mi = GIh_ii*TIh;
 		
 		K[3] = (GIe_mi - (ki*ki/krhosq)*((kzm*kzm/(km*km))*GIe_mi - GIh_mi));
+
 		/*
+		DEBUGGING
 		if (std::abs(std::real(krho) - 537762.71312272199)<1e-10) {
 			std::cout << "GIe_mi = " << GIe_mi << ", at z = " << z << ", at krho = " << krho << ", at (kzm*kzm/(km*km)) = " << (kzm*kzm/(km*km)) << std::endl;
 			std::cout << "GIh_mi = " << GIh_mi << ", at z = " << z << ", at krho = " << krho << std::endl;

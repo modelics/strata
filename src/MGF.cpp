@@ -233,60 +233,60 @@ void MGF::Initialize(double _f, LayerManager &_lm, MGF_settings &_s)
 }
 
 /*! \brief Consider one layer first*/
-void MGF::adaptiveInterpolation(MGF &mgf)
+void MGF::AdaptiveInterpolation()
 {
-    updateRhonodes(mgf);
+    UpdateRhoNodes();
     //updateZnodes(mgf);
 
     return;
 }
 
 /*! \brief Consider one layer first*/
-void MGF::updateZnodes(MGF &mgf)
+void MGF::UpdateZNodes()
 {
 
     std::cout << "========================= Update the z nodes =========================" << std::endl;
 
-    for (int layer = 0; layer < mgf.lm.layers.size(); layer++)
+    for (int layer = 0; layer < lm.layers.size(); layer++)
     {
         // Ensure the vector has at least 3 elements
-        if (mgf.lm.z_nodes[layer].size() < 2) {
+        if (lm.z_nodes[layer].size() < 2) {
             std::cerr << "Vector needs at least 2 elements." << std::endl;
         }
 
         std::vector<double> z_test_nodes;
 
-        for (int ii = 0; ii < mgf.lm.z_nodes[layer].size() - 1; ii++)
+        for (int ii = 0; ii < lm.z_nodes[layer].size() - 1; ii++)
         {
-            double z_test = (mgf.lm.z_nodes[layer][ii+1] + mgf.lm.z_nodes[layer][ii])/2;
+            double z_test = (lm.z_nodes[layer][ii+1] + lm.z_nodes[layer][ii])/2;
             z_test_nodes.push_back(z_test);
         }
 
         // compute the MGF
         // choose rho that will more likely to lead to strong singularity
-        double rho_test = mgf.lm.rho_nodes[1];
+        double rho_test = lm.rho_nodes[1];
 
         for (int ii = 0; ii < z_test_nodes.size(); ii++)
         {
             double z_test = z_test_nodes[ii];
             double z_src = z_test_nodes[ii];
 
-            double z_spacing = mgf.lm.z_nodes[layer][ii + 1] - mgf.lm.z_nodes[layer][ii];
+            double z_spacing = lm.z_nodes[layer][ii + 1] - lm.z_nodes[layer][ii];
             int level = 1;
 
             int i = lm.FindLayer(z_test);
             int m = lm.FindLayer(z_src);
-            mgf.smgf.SetLayers(i, m);
-            bool is_Midpoint_Correct = isMidpointCorrect(rho_test, z_src, z_test, mgf.s.adaptive_threshold, false);
+            smgf.SetLayers(i, m);
+            bool is_Midpoint_Correct = IsMidpointCorrect(rho_test, z_src, z_test, s.adaptive_threshold, false);
 
             if (!is_Midpoint_Correct)
             {
                 if(level == 1)
-                    addZTable(mgf, z_test, layer);
+                    AddZTable(z_test, layer);
                 level++;
                 std::vector<double> z_tests;
-                test_addZTable_recursive(mgf, layer, rho_test, z_spacing, z_test, z_src, level, z_tests);
-                processZTests(mgf, layer, rho_test, z_spacing, z_test, z_src, level, z_tests);
+                TestAddZTableRecursive(layer, rho_test, z_spacing, z_test, z_src, level, z_tests);
+                ProcessZTests(layer, rho_test, z_spacing, z_test, z_src, level, z_tests);
             }
         }
 
@@ -296,16 +296,15 @@ void MGF::updateZnodes(MGF &mgf)
 }
 
 /*! \brief Consider one layer first*/
-void MGF::updateRhonodes(MGF &mgf)
+void MGF::UpdateRhoNodes()
 {
     std::cout << "===========================Update the rho nodes===========================" << std::endl;
 
     std::vector<double> rho_test_nodes;
 
-	std::cout << "===========================Initialize the test rho nodes===========================" << std::endl;
-    for (int ii = 0; ii < mgf.lm.rho_nodes.size() - 1; ii++)
+    for (int ii = 0; ii < lm.rho_nodes.size() - 1; ii++)
     {
-        double rho_test = (mgf.lm.rho_nodes[ii] + mgf.lm.rho_nodes[ii+1])/2;
+        double rho_test = (lm.rho_nodes[ii] + lm.rho_nodes[ii+1])/2;
         rho_test_nodes.push_back(rho_test);
     }
 
@@ -313,8 +312,8 @@ void MGF::updateRhonodes(MGF &mgf)
     // compute the MGF
     // choose rho that will more likely to lead to strong singularity
 
-    double z_test = mgf.lm.z_nodes[0][0];
-    double z_src = mgf.lm.z_nodes[0][0];
+    double z_test = lm.z_nodes[0][0];
+    double z_src = lm.z_nodes[0][0];
 
 	std::cout << "===========================Iteration on the test rho nodes===========================" << std::endl;
     for (int ii = 0; ii < rho_test_nodes.size(); ii++) {
@@ -326,22 +325,21 @@ void MGF::updateRhonodes(MGF &mgf)
         // verify if this point will be added based on the relative error rate
         int i = lm.FindLayer(z_test);
         int m = lm.FindLayer(z_src);
-        mgf.smgf.SetLayers(i, m);
-        mgf.i = i;
-        mgf.m = m;
+        smgf.SetLayers(i, m);
+        this->i = i;
+        this->m = m;
 
 
-    	std::cout << "===========================Initialization before is_Midpoint_Correct===========================" << std::endl;
-        bool is_Midpoint_Correct = isMidpointCorrect(rho_test, z_test, z_src, mgf.s.adaptive_threshold, true);
+        bool is_Midpoint_Correct = IsMidpointCorrect(rho_test, z_test, z_src, s.adaptive_threshold, true);
 
         if (!is_Midpoint_Correct)
         {
             if(level == 1)
-                addRhoTable(mgf, rho_test);
+                AddRhoTable(rho_test);
             level++;
             std::vector<double> rho_test_nodes_new;
-            test_addRhoTable_recursive(mgf, rho_test, rho_spacing, z_test, z_src, level, rho_test_nodes_new);
-            processRhoTests(mgf, rho_spacing, z_test, z_src, level, rho_test_nodes_new);
+            TestAddRhoTableRecursive(rho_test, rho_spacing, z_test, z_src, level, rho_test_nodes_new);
+            ProcessRhoTests(rho_spacing, z_test, z_src, level, rho_test_nodes_new);
         }
     }
 
@@ -349,38 +347,38 @@ void MGF::updateRhonodes(MGF &mgf)
     return;
 }
 
-void MGF::processRhoTests(MGF& mgf, double rho_spacing, double z_test, double z_src, int level, std::vector<double>& rho_tests)
+void MGF::ProcessRhoTests(double rho_spacing, double z_test, double z_src, int level, std::vector<double>& rho_tests)
 {
     if (level >= 6)
         return;
     for (double test_rho : rho_tests) {
         std::vector<double> new_rho_tests;
-        test_addRhoTable_recursive(mgf, test_rho, rho_spacing, z_test, z_src, level + 1, new_rho_tests);
+        TestAddRhoTableRecursive(test_rho, rho_spacing, z_test, z_src, level + 1, new_rho_tests);
 
         // Process new test points if generated.
         if (!new_rho_tests.empty()) {
-            processRhoTests(mgf, rho_spacing, z_test, z_src, level + 1, new_rho_tests);
+            ProcessRhoTests(rho_spacing, z_test, z_src, level + 1, new_rho_tests);
         }
     }
 }
 
-void MGF::processZTests(MGF& mgf, int layer_idx, double rho_test, double z_spacing, double z_test, double z_src, int level, std::vector<double>& z_tests)
+void MGF::ProcessZTests(int layer_idx, double rho_test, double z_spacing, double z_test, double z_src, int level, std::vector<double>& z_tests)
 {
     if (level >= 3)
         return;
     for (double test_z : z_tests) {
         std::vector<double> new_z_tests;
-        test_addZTable_recursive(mgf, layer_idx, rho_test, z_spacing, z_test, z_src, level + 1, new_z_tests);
+        TestAddZTableRecursive(layer_idx, rho_test, z_spacing, z_test, z_src, level + 1, new_z_tests);
 
         // Process new test points if generated.
         if (!new_z_tests.empty()) {
-            processZTests(mgf, layer_idx, rho_test, z_spacing, test_z, test_z, level + 1, new_z_tests);
+            ProcessZTests(layer_idx, rho_test, z_spacing, test_z, test_z, level + 1, new_z_tests);
         }
     }
 }
 
 
-bool MGF::isMidpointCorrect(double rho, double z_src, double z_test, double adaptive_threshold, bool test_rho)
+bool MGF::IsMidpointCorrect(double rho, double z_src, double z_test, double adaptive_threshold, bool test_rho)
 {
     std::array<std::complex<double>, 5> _G_integ;
     std::array<std::complex<double>, 5> _G_interp;
@@ -418,9 +416,9 @@ bool MGF::isMidpointCorrect(double rho, double z_src, double z_test, double adap
 
     return true;
 }
-void MGF::addRhoTable(MGF &mgf, double rho_test)
+void MGF::AddRhoTable(double rho_test)
 {
-    int rho_size = mgf.lm.rho_nodes.size();
+    int rho_size = lm.rho_nodes.size();
     // Find the proper position to insert the value so that the vector remains sorted
     auto position = std::lower_bound(lm.rho_nodes.begin(), lm.rho_nodes.end(), rho_test);
 
@@ -428,33 +426,33 @@ void MGF::addRhoTable(MGF &mgf, double rho_test)
     std::vector<int>::difference_type index = position - lm.rho_nodes.begin();
 
     // Insert the value
-    mgf.lm.rho_nodes.insert(position, rho_test);
+    lm.rho_nodes.insert(position, rho_test);
 
     // Update the interpolation table
-    AppendMGFTable_rho(mgf.MGF_table, index, rho_size + 1);
+    AppendMGFTableRho(MGF_table, index, rho_size + 1);
 
     std::cout << "-->Add this point to the interpolation table!" << std::endl;
 }
 
-void MGF::addZTable(MGF &mgf, double z_test, int layer)
+void MGF::AddZTable(double z_test, int layer)
 {
-    int z_size = mgf.lm.z_nodes[layer].size();
+    int z_size = lm.z_nodes[layer].size();
     // Find the proper position to insert the value so that the vector remains sorted
-    auto position = std::lower_bound(mgf.lm.z_nodes[layer].begin(), mgf.lm.z_nodes[layer].end(), z_test);
+    auto position = std::lower_bound(lm.z_nodes[layer].begin(), lm.z_nodes[layer].end(), z_test);
 
     // Calculate the index for the new element
-    std::vector<int>::difference_type index = position - mgf.lm.z_nodes[layer].begin();
+    std::vector<int>::difference_type index = position - lm.z_nodes[layer].begin();
 
     // Insert the value
-    mgf.lm.z_nodes[layer].insert(position, z_test);
+    lm.z_nodes[layer].insert(position, z_test);
 
     // Update the interpolation table
-    AppendMGFTable_z(mgf.MGF_table, layer, index, z_size + 1);
+    AppendMGFTableZ(MGF_table, layer, index, z_size + 1);
 
     std::cout << "-->Add this point to the interpolation table!" << std::endl;
 }
 
-void MGF::test_addRhoTable_recursive(MGF &mgf, double rho_test, double rho_spacing, double z_test, double z_src, int level, std::vector<double> &rho_tests_l2)
+void MGF::TestAddRhoTableRecursive(double rho_test, double rho_spacing, double z_test, double z_src, int level, std::vector<double> &rho_tests_l2)
 {
     double spacing_l1 = rho_spacing / std::pow(2, level);
 
@@ -464,18 +462,18 @@ void MGF::test_addRhoTable_recursive(MGF &mgf, double rho_test, double rho_spaci
     {
         int i = lm.FindLayer(z_test);
         int m = lm.FindLayer(z_src);
-        mgf.smgf.SetLayers(i, m);
+        smgf.SetLayers(i, m);
 
-        bool add_point_to_table = isMidpointCorrect(rho_tests_l1[jj], z_test, z_src, mgf.s.adaptive_threshold, true);
+        bool add_point_to_table = IsMidpointCorrect(rho_tests_l1[jj], z_test, z_src, s.adaptive_threshold, true);
         if (!add_point_to_table)
         {
-            addRhoTable(mgf, rho_tests_l1[jj]);
+            AddRhoTable(rho_tests_l1[jj]);
             rho_tests_l2.push_back(rho_tests_l1[jj]);
         }
     }
 }
 
-void MGF::test_addZTable_recursive(MGF &mgf, int layer_idx, double rho_test, double z_spacing, double z_test, double z_src, int level, std::vector<double> &z_tests_l2)
+void MGF::TestAddZTableRecursive(int layer_idx, double rho_test, double z_spacing, double z_test, double z_src, int level, std::vector<double> &z_tests_l2)
 {
     double spacing_l1 = z_spacing / std::pow(2, level);
 
@@ -485,30 +483,30 @@ void MGF::test_addZTable_recursive(MGF &mgf, int layer_idx, double rho_test, dou
     {
         int i = lm.FindLayer(z_tests_l1[jj]);
         int m = lm.FindLayer(z_tests_l1[jj]);
-        mgf.smgf.SetLayers(i, m);
-        bool is_Midpoint_Correct = isMidpointCorrect(rho_test, z_tests_l1[jj], z_tests_l1[jj], mgf.s.adaptive_threshold, false);
+        smgf.SetLayers(i, m);
+        bool is_Midpoint_Correct = IsMidpointCorrect(rho_test, z_tests_l1[jj], z_tests_l1[jj], s.adaptive_threshold, false);
 
         if (!is_Midpoint_Correct)
         {
-            addZTable(mgf, z_tests_l1[jj], layer_idx);
+            AddZTable(z_tests_l1[jj], layer_idx);
             z_tests_l2.push_back(z_tests_l1[jj]);
         }
     }
 }
 
 
-void MGF::plotRhoNodes(MGF mgf, std::vector<double> z_gridpoints)
+void MGF::PlotRhoNodes(std::vector<double> z_gridpoints)
 {
     double z_test = z_gridpoints[0];
     double z_src = z_gridpoints[0];
 
     std::ofstream outputFile("../Testing/MGF.txt");
-    for (int ii = 0; ii < mgf.lm.rho_nodes.size(); ii++)
+    for (int ii = 0; ii < lm.rho_nodes.size(); ii++)
     {
-        outputFile << mgf.lm.rho_nodes[ii] << ", ";
+        outputFile << lm.rho_nodes[ii] << ", ";
         std::array<std::complex<double>, 5> _G_integ;
         std::fill(_G_integ.begin(), _G_integ.end(), 0.0);
-        ComputeMGF_Integration(mgf.lm.rho_nodes[ii], z_test, z_src, _G_integ);
+        ComputeMGF_Integration(lm.rho_nodes[ii], z_test, z_src, _G_integ);
 
         if(outputFile.is_open()){
             for (int jj = 0; jj < _G_integ.size(); jj++)
@@ -1144,8 +1142,8 @@ void MGF::ComputeMGF_Interpolation_withZ(double rho, double z, double zp, std::a
     std::vector<double> z_stencil;
     std::vector<double> zp_stencil;
 
-    GetStencil_z(z, z_idx_stencil, z_stencil);
-    GetStencil_z(zp, zp_idx_stencil, zp_stencil);
+    GetStencilZ(z, z_idx_stencil, z_stencil);
+    GetStencilZ(zp, zp_idx_stencil, zp_stencil);
 
     // Get interpolation points for rho
     std::vector<int> cols = GetColumns(rho);
@@ -1354,10 +1352,10 @@ void MGF::TabulateMGF(std::vector<std::vector<table_entry<N>>> &table, bool curl
 	double z, zp, rho;
 
 
-#pragma omp parallel for collapse(2) firstprivate(mgfLocal) schedule(dynamic) \
-    default(none) \
-    shared(table, lm, s, layerOffsets, curl) \
-    private(ii, mm, ss, tt, qq, rowIdx, rho, z, zp, base)
+	//#pragma omp parallel for collapse(2) firstprivate(mgfLocal) schedule(dynamic) \
+    //default(none) \
+    //shared(table, lm, s, layerOffsets, curl) \
+    //private(ii, mm, ss, tt, qq, rowIdx, rho, z, zp, base)
 
 	// Traverse source layers
 	for (ii = 0; ii < lm.layers.size(); ii++)
@@ -1419,7 +1417,7 @@ void MGF::TabulateMGF(std::vector<std::vector<table_entry<N>>> &table, bool curl
 }
 
 template<std::size_t N>
-void MGF::AppendMGFTable_z(std::vector<std::vector<table_entry<N>>> &table, int layer_idx, int z_idx, int z_new_size, bool curl)
+void MGF::AppendMGFTableZ(std::vector<std::vector<table_entry<N>>> &table, int layer_idx, int z_idx, int z_new_size, bool curl)
 {
 
     if (lm.z_nodes.size() < 1)
@@ -1431,7 +1429,7 @@ void MGF::AppendMGFTable_z(std::vector<std::vector<table_entry<N>>> &table, int 
 
     // ====== Generate index maps ======
 
-    AddTableMaps_z(layer_idx, z_idx, z_new_size);
+    AddTableMapsZ(layer_idx, z_idx, z_new_size);
 
 
     // ====== Generate table ======
@@ -1510,7 +1508,7 @@ void MGF::AppendMGFTable_z(std::vector<std::vector<table_entry<N>>> &table, int 
 }
 
 template<std::size_t N>
-void MGF::AppendMGFTable_rho(std::vector<std::vector<table_entry<N>>> &table, int rho_idx, int rho_new_size, bool curl)
+void MGF::AppendMGFTableRho(std::vector<std::vector<table_entry<N>>> &table, int rho_idx, int rho_new_size, bool curl)
 {
 
     if (lm.rho_nodes.size() < 1)
@@ -1522,7 +1520,7 @@ void MGF::AppendMGFTable_rho(std::vector<std::vector<table_entry<N>>> &table, in
 
     // ====== Generate index maps ======
 
-    AddTableMaps_rho();
+    AddTableMapsRho();
 
 	// Grow every row to make room for one more rho‑column
     for (auto &row : table)
@@ -1688,7 +1686,7 @@ void MGF::GenerateTableMaps()
 }
 
 /*! \brief Consider one layer first.*/
-void MGF::AddTableMaps_z(int layer_idx, int z_idx, int z_new_size)
+void MGF::AddTableMapsZ(int layer_idx, int z_idx, int z_new_size)
 {
 
     // ====== Generate maps between z-nodes and their index in the stackup ======
@@ -1760,7 +1758,7 @@ void MGF::AddTableMaps_z(int layer_idx, int z_idx, int z_new_size)
 }
 
 /*! \brief Consider one layer first.*/
-void MGF::AddTableMaps_rho()
+void MGF::AddTableMapsRho()
 {
 
     // ====== Update the map for rho-nodes ======
@@ -1857,7 +1855,7 @@ int MGF::GetRow(double z, double zp)
 }
 
 /*! \brief Function to retrieve the interpolation stencil for a given z and zp.*/
-void MGF::GetStencil_z(double z, std::vector<int> &z_idx_stencil, std::vector<double> &z_stencil)
+void MGF::GetStencilZ(double z, std::vector<int> &z_idx_stencil, std::vector<double> &z_stencil)
 {
 
     if (!initialized)

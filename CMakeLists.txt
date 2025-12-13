@@ -210,8 +210,8 @@ target_link_libraries(strata ${BLAS_LIB} ${AmosBessel_LIB} ${YAML_LIB})
 target_include_directories(strata PRIVATE ${INCLUDE_DIR})
 
 # Add OpenBLAS dependency if externally downloaded
-if ((WITH_OPENBLAS_INC STREQUAL "") OR
-    (WITH_OPENBLAS_LIB STREQUAL ""))
+if (((WITH_OPENBLAS_INC STREQUAL "") OR
+    (WITH_OPENBLAS_LIB STREQUAL "")) AND NOT MKL_FOUND)
     add_dependencies(strata external_openblas external_amosbessel)
 else ()
     add_dependencies(strata external_amosbessel)

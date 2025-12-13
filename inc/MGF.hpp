@@ -88,7 +88,7 @@ struct MGF_settings
 	int order = 3;
     int order_z = 3;
     double N_lambda = 10.0;
-    double adaptive_threshold = 0.1;
+    double adaptive_threshold = 0.005;
 	std::string filename, filename_curl;
 	bool load_table = false;
 	bool export_table = false;
@@ -122,17 +122,7 @@ public:
 	// ============ Interface ============
 
     void Initialize(double _f, LayerManager &_lm, MGF_settings &_s);
-    void adaptiveInterpolation(MGF &mgf);
-    void updateZnodes(MGF &mgf);
-    void updateRhonodes(MGF &mgf);
-    bool isMidpointCorrect(double rho, double z_src, double z_test,  double adaptive_threshold, bool test_rho);
-    void addRhoTable(MGF &mgf, double rho_test);
-    void addZTable(MGF &mgf, double z_test, int layer);
-    void plotRhoNodes(MGF mgf, std::vector<double> z_gridpoints);
-    void processRhoTests(MGF& mgf, double rho_spacing, double z_test, double z_src, int level, std::vector<double>& rho_tests);
-    void processZTests(MGF& mgf, int layer_idx, double rho_test, double z_spacing, double z_test, double z_src, int level, std::vector<double>& z_tests);
-    void test_addRhoTable_recursive(MGF &mgf, double rho_test_l1, double rho_spacing, double z_test, double z_src, int level, std::vector<double> &rho_test_l2);
-    void test_addZTable_recursive(MGF &mgf, int layer_idx, double rho_test, double z_spacing, double z_test, double z_src, int level, std::vector<double> &z_tests_l2);
+    void AdaptiveInterpolation();
     void SetLayers(int _i, int _m);
 	void SetSingularityExtraction(bool extract_singularities);
 	void SetComponents(std::vector<bool> components);
@@ -170,30 +160,6 @@ public:
 	void ComputeSingularityFactors(double x_diff, double y_diff, double z, double zp);
 	void ComputeSingularityFactors();
 	void ComputeHomogeneousFactors();
-
-
-	// ============ Computational helpers ============
-
-	bool UseQuasistaticOnly(double rho, double z, double zp);
-	
-	template<std::size_t N>
-	void TabulateMGF(std::vector<std::vector<table_entry<N>>> &table, bool curl = false);
-    template<std::size_t N>
-    void AppendMGFTable_z(std::vector<std::vector<table_entry<N>>> &table, int layer_idx, int z_idx, int z_new_idx, bool curl = false);
-    template<std::size_t N>
-    void AppendMGFTable_rho(std::vector<std::vector<table_entry<N>>> &table, int rho_idx, int rho_new_idx, bool curl = false);
-    void GenerateTableMaps();
-    void AddTableMaps_z(int layer_idx, int z_idx, int z_new_idx);
-    void AddTableMaps_rho();
-	int GetRow(double z, double zp);
-    void GetStencil_z(double z, std::vector<int> &z_idx_stencil, std::vector<double> &z_stencil);
-	std::vector<int> GetColumns(double rho);
-
-	template<std::size_t N>
-	int LoadTable(std::vector<std::vector<table_entry<N>>> &table, std::string filename);
-	template<std::size_t N>
-	int ExportTable(std::vector<std::vector<table_entry<N>>> &table, std::string filename);
-	
 	
 	// ============ Storage ============
 
@@ -226,9 +192,44 @@ public:
 	bool layers_set = false;
 	bool singularity_factors_computed = false;
 		
+private:
+
+	// ============ Testing & Debugging ============
+
+    void PlotRhoNodes(std::vector<double> z_gridpoints);
+    void ProcessRhoTests(double rho_spacing, double z_test, double z_src, int level, std::vector<double>& rho_tests);
+    void ProcessZTests(int layer_idx, double rho_test, double z_spacing, double z_test, double z_src, int level, std::vector<double>& z_tests);
+    void TestAddRhoTableRecursive(double rho_test_l1, double rho_spacing, double z_test, double z_src, int level, std::vector<double> &rho_test_l2);
+    void TestAddZTableRecursive(int layer_idx, double rho_test, double z_spacing, double z_test, double z_src, int level, std::vector<double> &z_tests_l2);
+
+	// ============ Computational helpers ============
+
+	bool UseQuasistaticOnly(double rho, double z, double zp);
+	
+	template<std::size_t N>
+	void TabulateMGF(std::vector<std::vector<table_entry<N>>> &table, bool curl = false);
+    template<std::size_t N>
+    void AppendMGFTableZ(std::vector<std::vector<table_entry<N>>> &table, int layer_idx, int z_idx, int z_new_idx, bool curl = false);
+    template<std::size_t N>
+    void AppendMGFTableRho(std::vector<std::vector<table_entry<N>>> &table, int rho_idx, int rho_new_idx, bool curl = false);
+    void GenerateTableMaps();
+    void AddTableMapsZ(int layer_idx, int z_idx, int z_new_idx);
+    void AddTableMapsRho();
+	int GetRow(double z, double zp);
+    void GetStencilZ(double z, std::vector<int> &z_idx_stencil, std::vector<double> &z_stencil);
+	std::vector<int> GetColumns(double rho);
+    void UpdateZNodes();
+    void UpdateRhoNodes();
+    bool IsMidpointCorrect(double rho, double z_src, double z_test,  double adaptive_threshold, bool test_rho);
+    void AddRhoTable(double rho_test);
+    void AddZTable(double z_test, int layer);
+
+	template<std::size_t N>
+	int LoadTable(std::vector<std::vector<table_entry<N>>> &table, std::string filename);
+	template<std::size_t N>
+	int ExportTable(std::vector<std::vector<table_entry<N>>> &table, std::string filename);
 
 };
-
 
 #endif
 
