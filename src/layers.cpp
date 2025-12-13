@@ -127,7 +127,7 @@ void LayerManager::ProcessTechFile_yaml(std::string tech_file, double units)
 			double sigma = layer["sigma"].as<double> (0.0);
 			double sigmamu = layer["sigmamu"].as<double> (0.0);
 
-			std::complex<double> epsr = {epsr_im, epsr_real};
+			std::complex<double> epsr = {epsr_real, epsr_im};
 
 			// Add this layer to the full layer-set
 			AddLayer(zmin, zmax, epsr, mur, sigma, sigmamu);
@@ -465,10 +465,19 @@ void LayerManager::ProcessLayers(double f)
 
 
 /*! \brief Function to set the z nodes to tabulate multilayer Green's function.*/
-void LayerManager::SetZnodes_interp(double f, std::vector<double> &z_nodes, int N_lambda)
+void LayerManager::SetZNodesInterp(double f, std::vector<double> &z_nodes, int N_lambda)
 {
+
+	auto epsilon_complex = [] (double eps0, std::complex<double> epsr, double sigma, double omega)
+	{
+		if (omega > 0.0)
+			return std::complex<double> ((epsr.real()*eps0), epsr.imag()*eps0 + (-sigma/omega));
+		else
+			return std::complex<double> ((epsr.real()*eps0),  epsr.imag()*eps0 + 0.0);
+	};
+
     // Some useful constants are provided via the Strata namespace
-    std::complex<double> lambda0 = {1/(f * strata::eps0*strata::mu0), 0.0};
+    double mu0_denom = 1/(f * std::sqrt(strata::mu0));
     double dis_threshold = 1e-8;
 
     for (int ii = layers.size() - 1; ii >= 0; ii--)
@@ -476,8 +485,9 @@ void LayerManager::SetZnodes_interp(double f, std::vector<double> &z_nodes, int 
         std::vector<double> z_nodes_local;
 
         double h = layers[ii].zmax - layers[ii].zmin;
-        std::complex<double> lambda = lambda0/std::sqrt(layers[ii].epsr);
-        double electrical_size = h / lambda.real();
+		std::complex<double> complex_epsilon = epsilon_complex(strata::eps0, layers[ii].epsr, layers[ii].sigma, (2 * M_PI * f));
+        double lambda = mu0_denom / std::sqrt(complex_epsilon).real();
+        double electrical_size = h / lambda;
         double _Nz = N_lambda * electrical_size;
         int Nz = (int)std::round(_Nz);
 
@@ -504,10 +514,19 @@ void LayerManager::SetZnodes_interp(double f, std::vector<double> &z_nodes, int 
 }
 
 /*! \brief Function to set the z nodes based on the FFT grid to tabulate multilayer Green's function. Consider just object in one layer*/
-void LayerManager::SetZnodes_interpGrid(double f, std::vector<double> &z_nodes, int N_lambda, std::vector<double> grid_z)
+void LayerManager::SetZNodesInterpGrid(double f, std::vector<double> &z_nodes, int N_lambda, std::vector<double> grid_z)
 {
+
+	auto epsilon_complex = [] (double eps0, std::complex<double> epsr, double sigma, double omega)
+	{
+		if (omega > 0.0)
+			return std::complex<double> ((epsr.real()*eps0), epsr.imag()*eps0 + (-sigma/omega));
+		else
+			return std::complex<double> ((epsr.real()*eps0),  epsr.imag()*eps0 + 0.0);
+	};
+
     // Some useful constants are provided via the Strata namespace
-    std::complex<double> lambda0 = {1/(f * std::sqrt(strata::eps0*strata::mu0)), 0.0};
+    double mu0_denom = 1/(f * std::sqrt(strata::mu0));
     double dis_threshold = 1e-8;
     double z_min = grid_z[0];
     double z_max = grid_z[grid_z.size()-1];
@@ -516,8 +535,9 @@ void LayerManager::SetZnodes_interpGrid(double f, std::vector<double> &z_nodes, 
     int idx_layer = FindLayer(z_min);
 
     double h = z_max - z_min;
-	std::complex<double> lambda = lambda0/std::sqrt(layers[idx_layer].epsr);
-	double electrical_size = h / lambda.real();
+	std::complex<double> complex_epsilon = epsilon_complex(strata::eps0, layers[idx_layer].epsr, layers[idx_layer].sigma, (2 * M_PI * f));
+	double lambda = mu0_denom / std::sqrt(complex_epsilon).real();
+	double electrical_size = h / lambda;
     double _Nz = N_lambda * electrical_size;
     int Nz = (int)std::round(_Nz);
 

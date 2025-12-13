@@ -92,8 +92,8 @@ public:
 	void SetHalfspaces(double _epsr_top, double _mur_top, double _sigma_top, double _epsr_bot, double _mur_bot, double _sigma_bot, bool _isPEC_top, bool _isPEC_bot);
 	
 	void ProcessLayers(double f);
-    void SetZnodes_interp(double f, std::vector<double> &z_nodes, int N_lambda);
-    void SetZnodes_interpGrid(double f, std::vector<double> &z_nodes, int N_lambda, std::vector<double> grid_z);
+    void SetZNodesInterp(double f, std::vector<double> &z_nodes, int N_lambda);
+    void SetZNodesInterpGrid(double f, std::vector<double> &z_nodes, int N_lambda, std::vector<double> grid_z);
 
 	int FindLayer(double z);
 
