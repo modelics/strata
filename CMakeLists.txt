@@ -59,18 +59,33 @@ set(WITH_OPENBLAS_LIB "" CACHE PATH "Path to an existing OpenBLAS static library
 set(LIB_EXT ${CMAKE_BINARY_DIR}/external)
 set(BUILD_EXT ${LIB_EXT}/builds)
 
-# ====== Find MKL ======
+# ------ AOCL ------
+set(AOCL_ROOT $ENV{AOCL_ROOT})
 
-set(MKL_INTERFACE lp64)
-set(MKL_MPI openmpi)
-set(MKL_THREADING gnu_thread)
+find_library(AOCL_LAPACK_LIB NAMES flame libflame
+    HINTS "${AOCL_ROOT}/lib" "${AOCL_ROOT}/lib64"
+    PATH_SUFFIXES lib lib64)
+find_library(AOCL_BLAS_LIB NAMES blis libblis
+    HINTS "${AOCL_ROOT}/lib" "${AOCL_ROOT}/lib64"
+    PATH_SUFFIXES lib lib64)
+find_library(AOCL_UTILS_LIB NAMES aoclutils libaoclutils
+    HINTS "${AOCL_ROOT}/lib" "${AOCL_ROOT}/lib64"
+    PATH_SUFFIXES lib lib64)
 
-find_package(MKL CONFIG QUIET PATHS $ENV{MKLROOT})
+if (AOCL_LAPACK_LIB STREQUAL "AOCL_LAPACK_LIB-NOTFOUND" OR AOCL_BLAS_LIB STREQUAL "AOCL_BLAS_LIB-NOTFOUND" OR AOCL_UTILS_LIB STREQUAL "AOCL_UTILS_LIB-NOTFOUND")
+    set(AOCL_FOUND FALSE)
+else()
+    set(AOCL_FOUND TRUE)        
+endif()
 
-set(MKL_INC ${MKL_INCLUDE})
-set(MKL_LIB MKL::MKL)
+set(AOCL_INC ${AOCL_ROOT}/include)
+message(STATUS "AOCL_ROOT=${AOCL_ROOT}")
+message(STATUS "AOCL_BLAS_LIB=${AOCL_BLAS_LIB}")
+message(STATUS "AOCL_LAPACK_LIB=${AOCL_LAPACK_LIB}")
+message(STATUS "AOCL_UTILS_LIB=${AOCL_UTILS_LIB}")
+message(STATUS "AOCL_INC=${AOCL_INC}")
 
-if(NOT MKL_FOUND)
+if(NOT AOCL_FOUND) # fix this
 	# ------ OpenBLAS 0.3.29 ------
 	set(BLA_VENDOR OpenBLAS)
 	if ((NOT WITH_OPENBLAS_INC STREQUAL "") AND
@@ -167,16 +182,17 @@ endif()
 
 # ====== Strata ======
 
-if(NOT MKL_FOUND)
+if(NOT AOCL_FOUND)
 	set(BLAS_LIB ${OPENBLAS_LIB})
 	set(BLAS_INC ${OPENBLAS_INC})
+    get_filename_component(BLAS_LIB_DIR ${BLAS_LIB} DIRECTORY)
 else()
-	add_compile_definitions(USE_MKL)
-	set(BLAS_LIB ${MKL_LIB})
-	set(BLAS_INC ${MKL_INC})	
+	add_compile_definitions(AOCL_FOUND)
+	set(BLAS_LIB ${AOCL_BLAS_LIB} ${AOCL_LAPACK_LIB} ${AOCL_UTILS_LIB})
+	set(BLAS_INC ${AOCL_INC})
+    get_filename_component(BLAS_LIB_DIR ${AOCL_BLAS_LIB} DIRECTORY)	
 endif()
 
-get_filename_component(BLAS_LIB_DIR ${BLAS_LIB} DIRECTORY)
 get_filename_component(AmosBessel_LIB_DIR ${AmosBessel_LIB} DIRECTORY)
 get_filename_component(YAML_LIB_DIR ${YAML_LIB} DIRECTORY)
 
@@ -211,7 +227,7 @@ target_include_directories(strata PRIVATE ${INCLUDE_DIR})
 
 # Add OpenBLAS dependency if externally downloaded
 if (((WITH_OPENBLAS_INC STREQUAL "") OR
-    (WITH_OPENBLAS_LIB STREQUAL "")) AND NOT MKL_FOUND)
+    (WITH_OPENBLAS_LIB STREQUAL "")) AND NOT AOCL_FOUND)
     add_dependencies(strata external_openblas external_amosbessel)
 else ()
     add_dependencies(strata external_amosbessel)
