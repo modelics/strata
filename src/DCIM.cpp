@@ -51,11 +51,7 @@
 #include <iostream>
 #include <stdexcept>
 
-#if defined(USE_MKL)
-	#include <mkl.h>
-#else
-	#include <cblas.h>
-#endif
+#include <cblas.h>
 
 #if defined(_OPENMP)
 	#include <omp.h>
