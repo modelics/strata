@@ -236,7 +236,9 @@ void MGF::Initialize(double _f, LayerManager &_lm, MGF_settings &_s)
 void MGF::AdaptiveInterpolation()
 {
     UpdateRhoNodes();
-    //updateZnodes(mgf);
+
+    if (this->s.update_z_nodes)
+        UpdateZNodes();
 
     return;
 }
@@ -1352,10 +1354,10 @@ void MGF::TabulateMGF(std::vector<std::vector<table_entry<N>>> &table, bool curl
 	double z, zp, rho;
 
 
-	//#pragma omp parallel for collapse(2) firstprivate(mgfLocal) schedule(dynamic) \
-    //default(none) \
-    //shared(table, lm, s, layerOffsets, curl) \
-    //private(ii, mm, ss, tt, qq, rowIdx, rho, z, zp, base)
+	#pragma omp parallel for collapse(2) firstprivate(mgfLocal) schedule(dynamic) \
+    default(none) \
+    shared(table, lm, s, layerOffsets, curl) \
+    private(ii, mm, ss, tt, qq, rowIdx, rho, z, zp, base)
 
 	// Traverse source layers
 	for (ii = 0; ii < lm.layers.size(); ii++)

@@ -71,7 +71,6 @@ struct MGF_settings
 
 	int method = MGF_INTERPOLATE;
     bool interpolate_z = false;
-    bool adaptive_interpolation = false;
 	bool extract_quasistatic = false;
 	bool extract_singularities = false;
 	bool extract_homogeneous = false;
@@ -89,6 +88,7 @@ struct MGF_settings
     int order_z = 3;
     double N_lambda = 10.0;
     double adaptive_threshold = 0.1;
+    bool update_z_nodes = false;
 	std::string filename, filename_curl;
 	bool load_table = false;
 	bool export_table = false;
