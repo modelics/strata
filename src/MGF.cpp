@@ -236,7 +236,9 @@ void MGF::Initialize(double _f, LayerManager &_lm, MGF_settings &_s)
 void MGF::AdaptiveInterpolation()
 {
     UpdateRhoNodes();
-    //updateZnodes(mgf);
+
+    if (this->s.update_z_nodes)
+        UpdateZNodes();
 
     return;
 }
@@ -315,7 +317,7 @@ void MGF::UpdateRhoNodes()
     double z_test = lm.z_nodes[0][0];
     double z_src = lm.z_nodes[0][0];
 
-	std::cout << "===========================Iteration on the test rho nodes===========================" << std::endl;
+	//std::cout << "===========================Iteration on the test rho nodes===========================" << std::endl;
     for (int ii = 0; ii < rho_test_nodes.size(); ii++) {
 
         double rho_test = rho_test_nodes[ii];
@@ -386,11 +388,11 @@ bool MGF::IsMidpointCorrect(double rho, double z_src, double z_test, double adap
     std::fill(_G_integ.begin(), _G_integ.end(), 0.0);
     std::fill(_G_interp.begin(), _G_interp.end(), 0.0);
 
-	std::cout << "===========================ComputeMGF_Integration===========================" << std::endl;
+	//std::cout << "===========================ComputeMGF_Integration===========================" << std::endl;
 
     ComputeMGF_Integration(rho, z_test, z_src, _G_integ);
 
-	std::cout << "===========================ComputeMGF_Interpolation_withZ===========================" << std::endl;
+	//std::cout << "===========================ComputeMGF_Interpolation_withZ===========================" << std::endl;
 
     ComputeMGF_Interpolation_withZ(rho, z_test, z_src, _G_interp, MGF_table, s.components);
 
@@ -406,9 +408,9 @@ bool MGF::IsMidpointCorrect(double rho, double z_src, double z_test, double adap
     double rmse_mean = std::accumulate(rmse.begin(),rmse.end(),0.0) / rmse.size();
 
     if (test_rho)
-        std::cout << "The RMSE for interpolation point at rho = " << rho << " is " << rmse_mean << std::endl;
+        std::cout << "The RMSE of the interpolated MGF at rho = " << rho << " is " << rmse_mean << std::endl;
     else
-        std::cout << "The RMSE for interpolation point at z = " << z_test << " is " << rmse_mean << std::endl;
+        std::cout << "The RMSE of the interpolated MGF at z = " << z_test << " is " << rmse_mean << std::endl;
     if (rmse_mean > adaptive_threshold)
     {
         return false;
@@ -1352,10 +1354,10 @@ void MGF::TabulateMGF(std::vector<std::vector<table_entry<N>>> &table, bool curl
 	double z, zp, rho;
 
 
-	//#pragma omp parallel for collapse(2) firstprivate(mgfLocal) schedule(dynamic) \
-    //default(none) \
-    //shared(table, lm, s, layerOffsets, curl) \
-    //private(ii, mm, ss, tt, qq, rowIdx, rho, z, zp, base)
+	#pragma omp parallel for collapse(2) firstprivate(mgfLocal) schedule(dynamic) \
+    default(none) \
+    shared(table, lm, s, layerOffsets, curl) \
+    private(ii, mm, ss, tt, qq, rowIdx, rho, z, zp, base)
 
 	// Traverse source layers
 	for (ii = 0; ii < lm.layers.size(); ii++)
