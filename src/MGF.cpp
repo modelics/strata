@@ -1325,98 +1325,171 @@ void MGF::TabulateMGF(std::vector<std::vector<table_entry<N>>> &table, bool curl
 
     table.clear();
 
-	// Precompute row‑block offsets for each (ii,mm) pair
-	std::vector<int> layerOffsets(lm.layers.size() * lm.layers.size());
-	int offset = 0;
-	for (int ii = 0; ii < lm.layers.size(); ++ii) {
-		for (int mm = 0; mm < lm.layers.size(); ++mm) {
-			layerOffsets[ii * lm.layers.size() + mm] = offset;
-			offset +=
-				static_cast<int>(lm.z_nodes[ii].size()) *
-				static_cast<int>(lm.z_nodes[mm].size());
-		}
-	}
-	const int totalRows = offset;
+    const int L = (int)lm.layers.size();
+    const int R = (int)lm.rho_nodes.size();
 
-	// Pre‑allocate the table: totalRows × lm.rho_nodes.size()
-	table.assign(totalRows, std::vector<table_entry<N>>(lm.rho_nodes.size()));
+    // Count active layers (layers with non-empty z-nodes).
+    // This is ONLY used for branching logic, not for offset construction.
+    int nActive   = 0;
+    int onlyLayer = -1;   // Stores the unique active layer index when nActive == 1
+    for (int i = 0; i < L; ++i)
+    {
+        if (!lm.z_nodes[i].empty())
+        {
+            ++nActive;
+            if (onlyLayer < 0)
+                onlyLayer = i;
+        }
+    }
 
+    if (nActive == 0)
+    {
+        std::cout << "[WARNING] MGF::TabulateMGF(): All layers have 0 z-nodes, so no samples were tabulated." << std::endl;
+        return;
+    }
 
-	// ====== Generate index maps ======
+    // ====== Original logic: build layerOffsets for all L×L layer pairs ======
+    std::vector<int> layerOffsets(L * L);
+    int offset = 0;
+    for (int ii = 0; ii < L; ++ii)
+    {
+        for (int mm = 0; mm < L; ++mm)
+        {
+            layerOffsets[ii * L + mm] = offset;
+            offset += (int)lm.z_nodes[ii].size() * (int)lm.z_nodes[mm].size();
+        }
+    }
+    const int totalRows = offset;
 
-	GenerateTableMaps();
+    // Pre-allocate table: totalRows × R
+    table.assign(totalRows, std::vector<table_entry<N>>(R));
 
-	// ====== Generate table ======
+    // Generate index maps
+    GenerateTableMaps();
 
-	MGF mgfLocal = *this;
-	// loop‐indices and temporaries for the parallel region
-	int ii, mm, ss, tt, qq, rowIdx, base;
-	double z, zp, rho;
+    MGF mgfLocal = *this;
 
+#pragma omp parallel firstprivate(mgfLocal, L, R, totalRows, nActive, onlyLayer) \
+    default(none) shared(table, lm, s, layerOffsets, curl)
+    {
+#pragma omp single
+        {
+            std::printf("\n[OMP] num_threads=%d, max_threads=%d\n",
+                        omp_get_num_threads(), omp_get_max_threads());
+            std::printf("[OMP] L=%d, nActive=%d, onlyLayer=%d, totalRows=%d, R=%d\n",
+                        L, nActive, onlyLayer, totalRows, R);
+        }
 
-	#pragma omp parallel for collapse(2) firstprivate(mgfLocal) schedule(dynamic) \
-    default(none) \
-    shared(table, lm, s, layerOffsets, curl) \
-    private(ii, mm, ss, tt, qq, rowIdx, rho, z, zp, base)
+        // ============================================================
+        // Case 1: More than one active layer
+        // Keep the original parallelization strategy unchanged
+        // ============================================================
+        if (nActive > 1)
+        {
+#pragma omp for collapse(2) schedule(static)
+            for (int ii = 0; ii < L; ++ii)
+            {
+                for (int mm = 0; mm < L; ++mm)
+                {
+                    const int base    = layerOffsets[ii * L + mm];
+                    const int zLenSrc = (int)lm.z_nodes[ii].size();
+                    const int zLenObs = (int)lm.z_nodes[mm].size();
 
-	// Traverse source layers
-	for (ii = 0; ii < lm.layers.size(); ii++)
-	{
+                    for (int ss = 0; ss < zLenSrc; ++ss)
+                    {
+                        for (int tt = 0; tt < zLenObs; ++tt)
+                        {
+                            const int rowIdx = base + ss * zLenObs + tt;
 
-		// Traverse observer layers
-		for (mm = 0; mm < lm.layers.size(); mm++)
-		{
-			base = layerOffsets[ii*lm.layers.size() + mm];
-			int zLenSrc = (int)lm.z_nodes[ii].size();
-			int zLenObs = (int)lm.z_nodes[mm].size();
+                            // Update thread-local state
+                            mgfLocal.i = ii;
+                            mgfLocal.m = mm;
+                            mgfLocal.smgf.SetLayers(ii, mm);
 
-			// Traverse source z-nodes
-			for (ss = 0; ss < zLenSrc; ss++)
-			{
-				// Traverse observer z-nodes
-				for (tt = 0; tt < zLenObs; tt++)
-				{
+                            const double zp = lm.z_nodes[ii][ss];
+                            const double z  = lm.z_nodes[mm][tt];
 
-					// Compute the unique row index
-					rowIdx = base + ss*zLenObs + tt;
+                            for (int qq = 0; qq < R; ++qq)
+                            {
+                                const double rho = lm.rho_nodes[qq];
+                                auto &Kref = table[rowIdx][qq].K;
 
-					// Update thread‑local state
-					mgfLocal.i = ii;
-					mgfLocal.m = mm;
-					mgfLocal.smgf.SetLayers(ii, mm);
+                                if (!curl)
+                                {
+                                    if (s.sampling_method == MGF_INTEGRATE)
+                                        mgfLocal.ComputeMGF_Integration(rho, z, zp, Kref);
+                                    else if (s.sampling_method == MGF_DCIM)
+                                        mgfLocal.ComputeMGF_DCIM(rho, z, zp, Kref);
+                                }
+                                else
+                                {
+                                    if (s.sampling_method == MGF_INTEGRATE)
+                                        mgfLocal.ComputeCurlMGF_Integration(rho, z, zp, Kref);
+                                    else if (s.sampling_method == MGF_DCIM)
+                                        mgfLocal.ComputeCurlMGF_DCIM(rho, z, zp, Kref);
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+            // ============================================================
+            // Case 2: Exactly one active layer
+            // Only parallelize over rho (qq)
+            // ============================================================
+        else
+        {
+            const int ii = onlyLayer;
+            const int mm = onlyLayer;
 
-					zp = lm.z_nodes[ii][ss];
-					z = lm.z_nodes[mm][tt];
+            const int base    = layerOffsets[ii * L + mm];
+            const int zLenSrc = (int)lm.z_nodes[ii].size();
+            const int zLenObs = (int)lm.z_nodes[mm].size();
 
+            for (int ss = 0; ss < zLenSrc; ++ss)
+            {
+                for (int tt = 0; tt < zLenObs; ++tt)
+                {
+                    const int rowIdx = base + ss * zLenObs + tt;
 
-					for (qq = 0; qq < lm.rho_nodes.size(); qq++)
-					{
-						rho = lm.rho_nodes[qq];
-						auto &Kref = table[rowIdx][qq].K;
+                    // Update thread-local state
+                    mgfLocal.i = ii;
+                    mgfLocal.m = mm;
+                    mgfLocal.smgf.SetLayers(ii, mm);
 
-						if (!curl)
-						{
-							if (s.sampling_method == MGF_INTEGRATE)
-								mgfLocal.ComputeMGF_Integration(rho, z, zp, Kref);
-							else if (s.sampling_method == MGF_DCIM)
-								mgfLocal.ComputeMGF_DCIM(rho, z, zp, Kref);
-						}
-						else
-						{
-							if (s.sampling_method == MGF_INTEGRATE)
-								mgfLocal.ComputeCurlMGF_Integration(rho, z, zp, Kref);
-							else if (s.sampling_method == MGF_DCIM)
-								mgfLocal.ComputeCurlMGF_DCIM(rho, z, zp, Kref);
-						}
-					}
-				}
-			}
-		}
-	}
+                    const double zp = lm.z_nodes[ii][ss];
+                    const double z  = lm.z_nodes[mm][tt];
 
-	return;
+                    // Parallelize only over rho.
+                    // Note: this introduces an implicit barrier for each (ss,tt) pair.
+#pragma omp for schedule(static)
+                    for (int qq = 0; qq < R; ++qq)
+                    {
+                        const double rho = lm.rho_nodes[qq];
+                        auto &Kref = table[rowIdx][qq].K;
 
+                        if (!curl)
+                        {
+                            if (s.sampling_method == MGF_INTEGRATE)
+                                mgfLocal.ComputeMGF_Integration(rho, z, zp, Kref);
+                            else if (s.sampling_method == MGF_DCIM)
+                                mgfLocal.ComputeMGF_DCIM(rho, z, zp, Kref);
+                        }
+                        else
+                        {
+                            if (s.sampling_method == MGF_INTEGRATE)
+                                mgfLocal.ComputeCurlMGF_Integration(rho, z, zp, Kref);
+                            else if (s.sampling_method == MGF_DCIM)
+                                mgfLocal.ComputeCurlMGF_DCIM(rho, z, zp, Kref);
+                        }
+                    }
+                }
+            }
+        }
+    } // end parallel region
 }
+
 
 template<std::size_t N>
 void MGF::AppendMGFTableZ(std::vector<std::vector<table_entry<N>>> &table, int layer_idx, int z_idx, int z_new_size, bool curl)
