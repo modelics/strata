@@ -34,6 +34,7 @@
 #include <complex>
 #include <vector>
 #include <stdexcept>
+#include <numeric>
 
 #include "MGF.hpp"
 #include "layers.hpp"
@@ -42,6 +43,7 @@
 #include "sommerfeld_integrals.hpp"
 #include "DCIM.hpp"
 #include "constants.hpp"
+#include "progress_bar.hpp"
 
 using namespace strata;
 
@@ -230,6 +232,306 @@ void MGF::Initialize(double _f, LayerManager &_lm, MGF_settings &_s)
 	
 }
 
+/*! \brief Consider one layer first*/
+void MGF::AdaptiveInterpolation()
+{
+    UpdateRhoNodes();
+
+    if (this->s.update_z_nodes)
+        UpdateZNodes();
+
+    return;
+}
+
+/*! \brief Consider one layer first*/
+void MGF::UpdateZNodes()
+{
+
+    std::cout << "========================= Update the z nodes =========================" << std::endl;
+
+    for (int layer = 0; layer < lm.layers.size(); layer++)
+    {
+        // Ensure the vector has at least 3 elements
+        if (lm.z_nodes[layer].size() < 2) {
+            std::cerr << "Vector needs at least 2 elements." << std::endl;
+        }
+
+        std::vector<double> z_test_nodes;
+
+        for (int ii = 0; ii < lm.z_nodes[layer].size() - 1; ii++)
+        {
+            double z_test = (lm.z_nodes[layer][ii+1] + lm.z_nodes[layer][ii])/2;
+            z_test_nodes.push_back(z_test);
+        }
+
+        // compute the MGF
+        // choose rho that will more likely to lead to strong singularity
+        double rho_test = lm.rho_nodes[1];
+
+        for (int ii = 0; ii < z_test_nodes.size(); ii++)
+        {
+            double z_test = z_test_nodes[ii];
+            double z_src = z_test_nodes[ii];
+
+            double z_spacing = lm.z_nodes[layer][ii + 1] - lm.z_nodes[layer][ii];
+            int level = 1;
+
+            int i = lm.FindLayer(z_test);
+            int m = lm.FindLayer(z_src);
+            smgf.SetLayers(i, m);
+            bool is_Midpoint_Correct = IsMidpointCorrect(rho_test, z_src, z_test, s.adaptive_threshold, false);
+
+            if (!is_Midpoint_Correct)
+            {
+                if(level == 1)
+                    AddZTable(z_test, layer);
+                level++;
+                std::vector<double> z_tests;
+                TestAddZTableRecursive(layer, rho_test, z_spacing, z_test, z_src, level, z_tests);
+                ProcessZTests(layer, rho_test, z_spacing, z_test, z_src, level, z_tests);
+            }
+        }
+
+    }
+
+    return;
+}
+
+/*! \brief Consider one layer first*/
+void MGF::UpdateRhoNodes()
+{
+    std::cout << "===========================Update the rho nodes===========================" << std::endl;
+
+    std::vector<double> rho_test_nodes;
+
+    for (int ii = 0; ii < lm.rho_nodes.size() - 1; ii++)
+    {
+        double rho_test = (lm.rho_nodes[ii] + lm.rho_nodes[ii+1])/2;
+        rho_test_nodes.push_back(rho_test);
+    }
+
+
+    // compute the MGF
+    // choose rho that will more likely to lead to strong singularity
+
+    double z_test = lm.z_nodes[0][0];
+    double z_src = lm.z_nodes[0][0];
+
+	//std::cout << "===========================Iteration on the test rho nodes===========================" << std::endl;
+    for (int ii = 0; ii < rho_test_nodes.size(); ii++) {
+
+        double rho_test = rho_test_nodes[ii];
+        double rho_spacing = lm.rho_nodes[ii + 1] - lm.rho_nodes[ii];
+        int level = 1;
+
+        // verify if this point will be added based on the relative error rate
+        int i = lm.FindLayer(z_test);
+        int m = lm.FindLayer(z_src);
+        smgf.SetLayers(i, m);
+        this->i = i;
+        this->m = m;
+
+
+        bool is_Midpoint_Correct = IsMidpointCorrect(rho_test, z_test, z_src, s.adaptive_threshold, true);
+
+        if (!is_Midpoint_Correct)
+        {
+            if(level == 1)
+                AddRhoTable(rho_test);
+            level++;
+            std::vector<double> rho_test_nodes_new;
+            TestAddRhoTableRecursive(rho_test, rho_spacing, z_test, z_src, level, rho_test_nodes_new);
+            ProcessRhoTests(rho_spacing, z_test, z_src, level, rho_test_nodes_new);
+        }
+    }
+
+
+    return;
+}
+
+void MGF::ProcessRhoTests(double rho_spacing, double z_test, double z_src, int level, std::vector<double>& rho_tests)
+{
+    if (level >= 6)
+        return;
+    for (double test_rho : rho_tests) {
+        std::vector<double> new_rho_tests;
+        TestAddRhoTableRecursive(test_rho, rho_spacing, z_test, z_src, level + 1, new_rho_tests);
+
+        // Process new test points if generated.
+        if (!new_rho_tests.empty()) {
+            ProcessRhoTests(rho_spacing, z_test, z_src, level + 1, new_rho_tests);
+        }
+    }
+}
+
+void MGF::ProcessZTests(int layer_idx, double rho_test, double z_spacing, double z_test, double z_src, int level, std::vector<double>& z_tests)
+{
+    if (level >= 3)
+        return;
+    for (double test_z : z_tests) {
+        std::vector<double> new_z_tests;
+        TestAddZTableRecursive(layer_idx, rho_test, z_spacing, z_test, z_src, level + 1, new_z_tests);
+
+        // Process new test points if generated.
+        if (!new_z_tests.empty()) {
+            ProcessZTests(layer_idx, rho_test, z_spacing, test_z, test_z, level + 1, new_z_tests);
+        }
+    }
+}
+
+
+bool MGF::IsMidpointCorrect(double rho, double z_src, double z_test, double adaptive_threshold, bool test_rho)
+{
+    std::array<std::complex<double>, 5> _G_integ;
+    std::array<std::complex<double>, 5> _G_interp;
+
+    std::fill(_G_integ.begin(), _G_integ.end(), 0.0);
+    std::fill(_G_interp.begin(), _G_interp.end(), 0.0);
+
+	//std::cout << "===========================ComputeMGF_Integration===========================" << std::endl;
+
+    ComputeMGF_Integration(rho, z_test, z_src, _G_integ);
+
+	//std::cout << "===========================ComputeMGF_Interpolation_withZ===========================" << std::endl;
+
+    ComputeMGF_Interpolation_withZ(rho, z_test, z_src, _G_interp, MGF_table, s.components);
+
+    std::vector<double> rmse;
+    for (int i = 0; i < 5; i++)
+    {
+        //std::cout << i << ": G_integration = " << _G_integ[i] << ", G_interplation = " << _G_interp[i] << std::endl;
+
+        if (std::abs(_G_integ[i]) != 0)
+            rmse.push_back(std::abs(_G_integ[i] - _G_interp[i]) / std::abs(_G_integ[i]));
+    }
+
+    double rmse_mean = std::accumulate(rmse.begin(),rmse.end(),0.0) / rmse.size();
+
+    if (test_rho)
+        std::cout << "The RMSE of the interpolated MGF at rho = " << rho << " is " << rmse_mean << std::endl;
+    else
+        std::cout << "The RMSE of the interpolated MGF at z = " << z_test << " is " << rmse_mean << std::endl;
+    if (rmse_mean > adaptive_threshold)
+    {
+        return false;
+    }
+
+    return true;
+}
+void MGF::AddRhoTable(double rho_test)
+{
+    int rho_size = lm.rho_nodes.size();
+    // Find the proper position to insert the value so that the vector remains sorted
+    auto position = std::lower_bound(lm.rho_nodes.begin(), lm.rho_nodes.end(), rho_test);
+
+    // Calculate the index for the new element
+    std::vector<int>::difference_type index = position - lm.rho_nodes.begin();
+
+    // Insert the value
+    lm.rho_nodes.insert(position, rho_test);
+
+    // Update the interpolation table
+    AppendMGFTableRho(MGF_table, index, rho_size + 1);
+
+    std::cout << "-->Add this point to the interpolation table!" << std::endl;
+}
+
+void MGF::AddZTable(double z_test, int layer)
+{
+    int z_size = lm.z_nodes[layer].size();
+    // Find the proper position to insert the value so that the vector remains sorted
+    auto position = std::lower_bound(lm.z_nodes[layer].begin(), lm.z_nodes[layer].end(), z_test);
+
+    // Calculate the index for the new element
+    std::vector<int>::difference_type index = position - lm.z_nodes[layer].begin();
+
+    // Insert the value
+    lm.z_nodes[layer].insert(position, z_test);
+
+    // Update the interpolation table
+    AppendMGFTableZ(MGF_table, layer, index, z_size + 1);
+
+    std::cout << "-->Add this point to the interpolation table!" << std::endl;
+}
+
+void MGF::TestAddRhoTableRecursive(double rho_test, double rho_spacing, double z_test, double z_src, int level, std::vector<double> &rho_tests_l2)
+{
+    double spacing_l1 = rho_spacing / std::pow(2, level);
+
+    std::vector<double> rho_tests_l1 {rho_test - spacing_l1, rho_test + spacing_l1};
+
+    for (int jj = 0; jj < 2; jj++)
+    {
+        int i = lm.FindLayer(z_test);
+        int m = lm.FindLayer(z_src);
+        smgf.SetLayers(i, m);
+
+        bool add_point_to_table = IsMidpointCorrect(rho_tests_l1[jj], z_test, z_src, s.adaptive_threshold, true);
+        if (!add_point_to_table)
+        {
+            AddRhoTable(rho_tests_l1[jj]);
+            rho_tests_l2.push_back(rho_tests_l1[jj]);
+        }
+    }
+}
+
+void MGF::TestAddZTableRecursive(int layer_idx, double rho_test, double z_spacing, double z_test, double z_src, int level, std::vector<double> &z_tests_l2)
+{
+    double spacing_l1 = z_spacing / std::pow(2, level);
+
+    std::vector<double> z_tests_l1 {z_test - spacing_l1, z_test + spacing_l1};
+
+    for (int jj = 0; jj < 2; jj++)
+    {
+        int i = lm.FindLayer(z_tests_l1[jj]);
+        int m = lm.FindLayer(z_tests_l1[jj]);
+        smgf.SetLayers(i, m);
+        bool is_Midpoint_Correct = IsMidpointCorrect(rho_test, z_tests_l1[jj], z_tests_l1[jj], s.adaptive_threshold, false);
+
+        if (!is_Midpoint_Correct)
+        {
+            AddZTable(z_tests_l1[jj], layer_idx);
+            z_tests_l2.push_back(z_tests_l1[jj]);
+        }
+    }
+}
+
+
+void MGF::PlotRhoNodes(std::vector<double> z_gridpoints)
+{
+    double z_test = z_gridpoints[0];
+    double z_src = z_gridpoints[0];
+
+    std::ofstream outputFile("../Testing/MGF.txt");
+    for (int ii = 0; ii < lm.rho_nodes.size(); ii++)
+    {
+        outputFile << lm.rho_nodes[ii] << ", ";
+        std::array<std::complex<double>, 5> _G_integ;
+        std::fill(_G_integ.begin(), _G_integ.end(), 0.0);
+        ComputeMGF_Integration(lm.rho_nodes[ii], z_test, z_src, _G_integ);
+
+        if(outputFile.is_open()){
+            for (int jj = 0; jj < _G_integ.size(); jj++)
+            {
+                outputFile << _G_integ[jj];
+                if(jj != _G_integ.size() - 1)
+                    outputFile << ", ";
+                if(jj == _G_integ.size() - 1)
+                    outputFile << "\n";
+            }
+        }
+        else
+        {
+            std::cout << "Can't open the file!" << std::endl;
+        }
+
+    }
+    outputFile.close();
+
+
+
+    return;
+}
 
 /*! \brief Set source and observation layers and execute related precomputations.*/
 void MGF::SetLayers(int _i, int _m)
@@ -350,7 +652,10 @@ void MGF::ComputeMGF(double x_diff, double y_diff, double z, double zp, std::arr
 	}
 	else if (s.method == MGF_INTERPOLATE)
 	{
-		ComputeMGF_Interpolation(rho, z, zp, _G, MGF_table, s.components);
+        if(s.interpolate_z)
+		    ComputeMGF_Interpolation_withZ(rho, z, zp, _G, MGF_table, s.components);
+        else
+            ComputeMGF_Interpolation(rho, z, zp, _G, MGF_table, s.components);
 	}
 
 	if (s.extract_quasistatic || s.method == MGF_QUASISTATIC)
@@ -640,7 +945,7 @@ void MGF::ComputeMGF_Integration(double rho, double z, double zp, std::array<std
 		G[4] = IntegrateSpectralFarField(smgf, rho, 4, 0, s.switching_point);
 		G[4] += IntegrateSpectralNearField(smgf, rho, 4, 0, s.switching_point);
 	}
-	
+
 	return;
 
 }
@@ -825,6 +1130,74 @@ void MGF::ComputeMGF_Interpolation(double rho, double z, double zp, std::array<s
 
 }
 
+/*! \brief Driver to compute the MGF using a pre-computed interpolation table.*/
+template<std::size_t N>
+void MGF::ComputeMGF_Interpolation_withZ(double rho, double z, double zp, std::array<std::complex<double>, N> &G, std::vector<std::vector<table_entry<N>>> &table, std::vector<bool> &components)
+{
+
+    std::fill(G.begin(), G.end(), 0.0);
+
+    // Extract interpolation abscissae (index and position)
+    std::vector<int> z_idx_stencil;
+    std::vector<int> zp_idx_stencil;
+
+    std::vector<double> z_stencil;
+    std::vector<double> zp_stencil;
+
+    GetStencilZ(z, z_idx_stencil, z_stencil);
+    GetStencilZ(zp, zp_idx_stencil, zp_stencil);
+
+    // Get interpolation points for rho
+    std::vector<int> cols = GetColumns(rho);
+
+    // Interpolate the MGF
+    for (int ii = 0; ii < cols.size(); ii++)
+    {
+        for (int jj = 0; jj < z_stencil.size(); jj++)
+        {
+            for (int kk = 0; kk < zp_stencil.size(); kk++)
+            {
+                // Compute the Lagrange polynomials
+                double L = 1.0;
+
+                // ====== Retrive the images at the above index pair ======
+
+                int idx_row = idxpair_to_row[std::make_pair(z_idx_stencil[jj], zp_idx_stencil[kk])];
+
+                for (int tt = 0; tt < cols.size(); tt++)
+                {
+                    if (tt == ii)
+                        continue;
+                    L *= (rho - lm.rho_nodes[cols[tt]])/(lm.rho_nodes[cols[ii]] - lm.rho_nodes[cols[tt]]);
+                }
+
+                for (int tt = 0; tt < z_stencil.size(); tt++)
+                {
+                    if (tt == jj)
+                        continue;
+                    L *= (z - z_stencil[tt])/(z_stencil[jj] - z_stencil[tt]);
+                }
+
+                for (int tt = 0; tt < zp_stencil.size(); tt++)
+                {
+                    if (tt == kk)
+                        continue;
+                    L *= (zp - zp_stencil[tt])/(zp_stencil[kk] - zp_stencil[tt]);
+                }
+
+
+                for (int tt = 0; tt < G.size(); tt++)
+                    if (components[tt])
+                        G[tt] += table[idx_row][cols[ii]].K[tt]*L;
+            }
+        }
+
+    }
+
+    return;
+
+}
+
 
 /*! \brief Function to compute the singularity factors for the quasistatic MGF.*/
 void MGF::ComputeSingularityFactors(double x_diff, double y_diff, double z, double zp)
@@ -952,66 +1325,363 @@ void MGF::TabulateMGF(std::vector<std::vector<table_entry<N>>> &table, bool curl
 
     table.clear();
 
+    const int L = (int)lm.layers.size();
+    const int R = (int)lm.rho_nodes.size();
 
-	// ====== Generate index maps ======
+    // Count active layers (layers with non-empty z-nodes).
+    // This is ONLY used for branching logic, not for offset construction.
+    int nActive   = 0;
+    int onlyLayer = -1;   // Stores the unique active layer index when nActive == 1
+    for (int i = 0; i < L; ++i)
+    {
+        if (!lm.z_nodes[i].empty())
+        {
+            ++nActive;
+            if (onlyLayer < 0)
+                onlyLayer = i;
+        }
+    }
 
-	GenerateTableMaps();
-	
+    if (nActive == 0)
+    {
+        std::cout << "[WARNING] MGF::TabulateMGF(): All layers have 0 z-nodes, so no samples were tabulated." << std::endl;
+        return;
+    }
 
-	// ====== Generate table ======
+    // ====== Original logic: build layerOffsets for all L×L layer pairs ======
+    std::vector<int> layerOffsets(L * L);
+    int offset = 0;
+    for (int ii = 0; ii < L; ++ii)
+    {
+        for (int mm = 0; mm < L; ++mm)
+        {
+            layerOffsets[ii * L + mm] = offset;
+            offset += (int)lm.z_nodes[ii].size() * (int)lm.z_nodes[mm].size();
+        }
+    }
+    const int totalRows = offset;
 
-	table.reserve(z_to_idx.size());
+    // Pre-allocate table: totalRows × R
+    table.assign(totalRows, std::vector<table_entry<N>>(R));
 
-	// Traverse source layers
-	for (int ii = 0; ii < lm.layers.size(); ii++)
-	{
-		// Traverse observer layers
-		for (int mm = 0; mm < lm.layers.size(); mm++)
-		{
-			smgf.SetLayers(ii, mm);
-			i = ii;
-			m = mm;
-			
-			// Traverse source z-nodes
-			for (int ss = 0; ss < lm.z_nodes[ii].size(); ss++)
-			{
-				// Traverse observer z-nodes
-				for (int tt = 0; tt < lm.z_nodes[mm].size(); tt++)
-				{
+    // Generate index maps
+    GenerateTableMaps();
 
-					double zp = lm.z_nodes[ii][ss];
-					double z = lm.z_nodes[mm][tt];					
+    MGF mgfLocal = *this;
 
-					// Generate all entries for this row
-					table.push_back(std::vector<table_entry<N>> (lm.rho_nodes.size()));
+#pragma omp parallel firstprivate(mgfLocal, L, R, totalRows, nActive, onlyLayer) \
+    default(none) shared(table, lm, s, layerOffsets, curl)
+    {
+#pragma omp single
+        {
+            std::printf("\n[OMP] num_threads=%d, max_threads=%d\n",
+                        omp_get_num_threads(), omp_get_max_threads());
+            std::printf("[OMP] L=%d, nActive=%d, onlyLayer=%d, totalRows=%d, R=%d\n",
+                        L, nActive, onlyLayer, totalRows, R);
+        }
 
-					for (int qq = 0; qq < lm.rho_nodes.size(); qq++)
-					{
-						double rho = lm.rho_nodes[qq];
+        // ============================================================
+        // Case 1: More than one active layer
+        // Keep the original parallelization strategy unchanged
+        // ============================================================
+        if (nActive > 1)
+        {
+#pragma omp for collapse(2) schedule(static)
+            for (int ii = 0; ii < L; ++ii)
+            {
+                for (int mm = 0; mm < L; ++mm)
+                {
+                    const int base    = layerOffsets[ii * L + mm];
+                    const int zLenSrc = (int)lm.z_nodes[ii].size();
+                    const int zLenObs = (int)lm.z_nodes[mm].size();
 
-						if (!curl)
-						{
-							if (s.sampling_method == MGF_INTEGRATE)
-								ComputeMGF_Integration(rho, z, zp, table.back()[qq].K);
-							else if (s.sampling_method == MGF_DCIM)
-								ComputeMGF_DCIM(rho, z, zp, table.back()[qq].K);
-						}
-						else
-						{
-							if (s.sampling_method == MGF_INTEGRATE)
-								ComputeCurlMGF_Integration(rho, z, zp, table.back()[qq].K);
-							else if (s.sampling_method == MGF_DCIM)
-								ComputeCurlMGF_DCIM(rho, z, zp, table.back()[qq].K);
-						}
-					}
-				}
-			}
-		}
-	}
+                    for (int ss = 0; ss < zLenSrc; ++ss)
+                    {
+                        for (int tt = 0; tt < zLenObs; ++tt)
+                        {
+                            const int rowIdx = base + ss * zLenObs + tt;
 
-	return;
+                            // Update thread-local state
+                            mgfLocal.i = ii;
+                            mgfLocal.m = mm;
+                            mgfLocal.smgf.SetLayers(ii, mm);
+
+                            const double zp = lm.z_nodes[ii][ss];
+                            const double z  = lm.z_nodes[mm][tt];
+
+                            for (int qq = 0; qq < R; ++qq)
+                            {
+                                const double rho = lm.rho_nodes[qq];
+                                auto &Kref = table[rowIdx][qq].K;
+
+                                if (!curl)
+                                {
+                                    if (s.sampling_method == MGF_INTEGRATE)
+                                        mgfLocal.ComputeMGF_Integration(rho, z, zp, Kref);
+                                    else if (s.sampling_method == MGF_DCIM)
+                                        mgfLocal.ComputeMGF_DCIM(rho, z, zp, Kref);
+                                }
+                                else
+                                {
+                                    if (s.sampling_method == MGF_INTEGRATE)
+                                        mgfLocal.ComputeCurlMGF_Integration(rho, z, zp, Kref);
+                                    else if (s.sampling_method == MGF_DCIM)
+                                        mgfLocal.ComputeCurlMGF_DCIM(rho, z, zp, Kref);
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+            // ============================================================
+            // Case 2: Exactly one active layer
+            // Only parallelize over rho (qq)
+            // ============================================================
+        else
+        {
+            const int ii = onlyLayer;
+            const int mm = onlyLayer;
+
+            const int base    = layerOffsets[ii * L + mm];
+            const int zLenSrc = (int)lm.z_nodes[ii].size();
+            const int zLenObs = (int)lm.z_nodes[mm].size();
+
+            for (int ss = 0; ss < zLenSrc; ++ss)
+            {
+                for (int tt = 0; tt < zLenObs; ++tt)
+                {
+                    const int rowIdx = base + ss * zLenObs + tt;
+
+                    // Update thread-local state
+                    mgfLocal.i = ii;
+                    mgfLocal.m = mm;
+                    mgfLocal.smgf.SetLayers(ii, mm);
+
+                    const double zp = lm.z_nodes[ii][ss];
+                    const double z  = lm.z_nodes[mm][tt];
+
+                    // Parallelize only over rho.
+                    // Note: this introduces an implicit barrier for each (ss,tt) pair.
+#pragma omp for schedule(static)
+                    for (int qq = 0; qq < R; ++qq)
+                    {
+                        const double rho = lm.rho_nodes[qq];
+                        auto &Kref = table[rowIdx][qq].K;
+
+                        if (!curl)
+                        {
+                            if (s.sampling_method == MGF_INTEGRATE)
+                                mgfLocal.ComputeMGF_Integration(rho, z, zp, Kref);
+                            else if (s.sampling_method == MGF_DCIM)
+                                mgfLocal.ComputeMGF_DCIM(rho, z, zp, Kref);
+                        }
+                        else
+                        {
+                            if (s.sampling_method == MGF_INTEGRATE)
+                                mgfLocal.ComputeCurlMGF_Integration(rho, z, zp, Kref);
+                            else if (s.sampling_method == MGF_DCIM)
+                                mgfLocal.ComputeCurlMGF_DCIM(rho, z, zp, Kref);
+                        }
+                    }
+                }
+            }
+        }
+    } // end parallel region
+}
+
+
+template<std::size_t N>
+void MGF::AppendMGFTableZ(std::vector<std::vector<table_entry<N>>> &table, int layer_idx, int z_idx, int z_new_size, bool curl)
+{
+
+    if (lm.z_nodes.size() < 1)
+    {
+        std::cout << "[WARNING] MGF::AppendMGFTable(): No z-nodes have been defined, so no samples were tabulated." << std::endl;
+        return;
+    }
+
+
+    // ====== Generate index maps ======
+
+    AddTableMapsZ(layer_idx, z_idx, z_new_size);
+
+
+    // ====== Generate table ======
+
+    // Traverse observer z-nodes
+    for (int ii = 0; ii < lm.layers.size(); ii++)
+    {
+        smgf.SetLayers(layer_idx, ii);
+
+        for (int tt = 0; tt < lm.z_nodes[ii].size(); tt++) {
+
+            double zp = lm.z_nodes[layer_idx][z_idx];
+            double z = lm.z_nodes[ii][tt];
+
+            // Generate all entries for this row
+            table.push_back(std::vector<table_entry<N>>(lm.rho_nodes.size()));
+
+            for (int qq = 0; qq < lm.rho_nodes.size(); qq++) {
+                double rho = lm.rho_nodes[qq];
+
+                if (!curl) {
+                    if (s.sampling_method == MGF_INTEGRATE)
+                        ComputeMGF_Integration(rho, z, zp, table.back()[qq].K);
+                    else if (s.sampling_method == MGF_DCIM)
+                        ComputeMGF_DCIM(rho, z, zp, table.back()[qq].K);
+                } else {
+                    if (s.sampling_method == MGF_INTEGRATE)
+                        ComputeCurlMGF_Integration(rho, z, zp, table.back()[qq].K);
+                    else if (s.sampling_method == MGF_DCIM)
+                        ComputeCurlMGF_DCIM(rho, z, zp, table.back()[qq].K);
+                }
+            }
+        }
+    }
+
+
+    // Traverse source z-nodes
+    for (int ii = 0; ii < lm.layers.size(); ii++)
+    {
+        smgf.SetLayers(ii, layer_idx);
+
+        for (int tt = 0; tt < lm.z_nodes[ii].size(); tt++)
+        {
+            double zp = lm.z_nodes[ii][tt];
+
+            if (zp == lm.z_nodes[layer_idx][z_idx])
+                continue;
+
+            double z = lm.z_nodes[layer_idx][z_idx];
+
+            // Generate all entries for this row
+            table.push_back(std::vector<table_entry<N>>(lm.rho_nodes.size()));
+
+            for (int qq = 0; qq < lm.rho_nodes.size(); qq++) {
+                double rho = lm.rho_nodes[qq];
+
+                if (!curl) {
+                    if (s.sampling_method == MGF_INTEGRATE)
+                        ComputeMGF_Integration(rho, z, zp, table.back()[qq].K);
+                    else if (s.sampling_method == MGF_DCIM)
+                        ComputeMGF_DCIM(rho, z, zp, table.back()[qq].K);
+                } else {
+                    if (s.sampling_method == MGF_INTEGRATE)
+                        ComputeCurlMGF_Integration(rho, z, zp, table.back()[qq].K);
+                    else if (s.sampling_method == MGF_DCIM)
+                        ComputeCurlMGF_DCIM(rho, z, zp, table.back()[qq].K);
+                }
+            }
+        }
+    }
+
+
+
+    return;
 
 }
+
+template<std::size_t N>
+void MGF::AppendMGFTableRho(std::vector<std::vector<table_entry<N>>> &table, int rho_idx, int rho_new_size, bool curl)
+{
+
+    if (lm.rho_nodes.size() < 1)
+    {
+        std::cout << "[WARNING] MGF::AppendMGFTable(): No rho-nodes have been defined, so no samples were tabulated." << std::endl;
+        return;
+    }
+
+
+    // ====== Generate index maps ======
+
+    AddTableMapsRho();
+
+	// Grow every row to make room for one more rho‑column
+    for (auto &row : table)
+        row.resize(rho_new_size);
+
+	// Pull out the fixed number of layers and rhos
+    const int L = static_cast<int>(lm.layers.size());
+    const int R = static_cast<int>(lm.rho_nodes.size());
+
+
+    // Make a thread‑local copy of *this* (carries i,m, smgf, maps, settings…)
+    MGF mgfLocal = *this;
+	int ii, mm, ss, tt, idx_z, idx_zp, idx_row;
+    int zLenSrc, zLenObs;
+    double z, zp, rho;
+
+    #pragma omp parallel for collapse(2) \
+    firstprivate(mgfLocal, rho_idx, rho_new_size, curl, L, R) \
+    schedule(dynamic) default(none) \
+    shared(table) \
+    private(ii, mm, ss, tt, idx_z, idx_zp, idx_row, zLenSrc, zLenObs, z, zp, rho)
+	// Traverse source layers
+    for (ii = 0; ii < L; ii++)
+    {
+    	// Traverse observer layers
+        for (mm = 0; mm < L; mm++)
+        {
+        	// Cache these per (ii,mm)
+			zLenSrc = static_cast<int>(lm.z_nodes[ii].size());
+			zLenObs = static_cast<int>(lm.z_nodes[mm].size());
+
+            // Traverse source z-nodes
+            for (ss = 0; ss < zLenSrc; ss++)
+            {
+                // Traverse observer z-nodes
+                for (tt = 0; tt < zLenObs; tt++)
+                {
+                	// Set thread‑local layer state
+		            mgfLocal.i = ii;
+		            mgfLocal.m = mm;
+		            mgfLocal.smgf.SetLayers(ii, mm);
+
+
+                	// Fetch coords & row index
+		            zp      = lm.z_nodes[ii][ss];
+		            z       = lm.z_nodes[mm][tt];
+		            idx_z   = mgfLocal.z_to_idx.at({mm, z});
+		            idx_zp  = mgfLocal.z_to_idx.at({ii, zp});
+		            idx_row = mgfLocal.idxpair_to_row.at({idx_z, idx_zp});
+
+                	rho     = lm.rho_nodes[rho_idx];
+					auto &row = table[idx_row];
+
+                	// Shift everything to the right of rho_idx
+					for (int j = rho_new_size - 1; j > rho_idx; --j)
+						row[j] = row[j - 1];
+
+                	// Compute the new sample
+		            table_entry<N> new_entry{};
+		            if (!curl) {
+		                if (mgfLocal.s.sampling_method == MGF_INTEGRATE)
+		                    mgfLocal.ComputeMGF_Integration(rho, z, zp, new_entry.K);
+		                else
+		                    mgfLocal.ComputeMGF_DCIM(rho, z, zp, new_entry.K);
+		            } else {
+		                if (mgfLocal.s.sampling_method == MGF_INTEGRATE)
+		                    mgfLocal.ComputeCurlMGF_Integration(rho, z, zp, new_entry.K);
+		                else
+		                    mgfLocal.ComputeCurlMGF_DCIM (rho, z, zp, new_entry.K);
+		            }
+
+		            // Write it into the slot
+		            row[rho_idx] = new_entry;
+
+                }
+            }
+
+        }
+    }
+
+
+
+    return;
+
+}
+
 
 
 /*! \brief Generate maps for interpolation table access.*/
@@ -1027,12 +1697,15 @@ void MGF::GenerateTableMaps()
 
 	// The int pair <ii, zz> is mapped to a unique int using Szudzik's function.
 	// Reference: https://stackoverflow.com/questions/919612/mapping-two-integers-to-one-in-a-unique-and-deterministic-way
+	int idx = 0;
 	for (int ii = 0; ii < lm.z_nodes.size(); ii++)
 	{
 		for (int zz = 0; zz < lm.z_nodes[ii].size(); zz++)
 		{
-			int idx = ii >= zz ? ii*ii + ii + zz : ii + zz*zz;
-			z_to_idx.insert(std::make_pair(lm.z_nodes[ii][zz], idx));
+			//int idx = ii >= zz ? ii*ii + ii + zz : ii + zz*zz;
+			std::pair<int,double> key = {ii, lm.z_nodes[ii][zz]};
+			z_to_idx.insert(std::make_pair(key, idx));
+			idx++;
 		}
 	}
 
@@ -1065,8 +1738,8 @@ void MGF::GenerateTableMaps()
 					double zp = lm.z_nodes[ii][ss];
 					double z = lm.z_nodes[mm][tt];
 
-					int idx_z = z_to_idx[z];
-					int idx_zp = z_to_idx[zp];
+					int idx_z = z_to_idx[{mm, z}];
+					int idx_zp = z_to_idx[{ii, zp}];
 
 					idxpair_to_row.insert(std::make_pair(std::make_pair(idx_z, idx_zp), idx_row));
 
@@ -1087,6 +1760,97 @@ void MGF::GenerateTableMaps()
 
 }
 
+/*! \brief Consider one layer first.*/
+void MGF::AddTableMapsZ(int layer_idx, int z_idx, int z_new_size)
+{
+
+    // ====== Generate maps between z-nodes and their index in the stackup ======
+
+    // The int pair <ii, zz> is mapped to a unique int using Szudzik's function.
+    // Reference: https://stackoverflow.com/questions/919612/mapping-two-integers-to-one-in-a-unique-and-deterministic-way
+
+    int map_size = z_to_idx.size();
+
+    int idx = layer_idx >= z_new_size ? layer_idx*layer_idx + layer_idx + z_new_size : layer_idx + z_new_size*z_new_size;
+    z_to_idx.insert(std::make_pair(std::pair<int,double>(layer_idx, lm.z_nodes[layer_idx][z_idx]), idx));
+
+
+    // ====== Generate a map for table entries ======
+
+    int idx_row = idxpair_to_row.size();
+
+    // Traverse observer z-nodes
+    for (int ii = 0; ii < lm.layers.size(); ii++)
+    {
+        for (int tt = 0; tt < lm.z_nodes[ii].size(); tt++)
+        {
+
+            double zp = lm.z_nodes[layer_idx][z_idx];
+            double z = lm.z_nodes[ii][tt];
+
+            int idx_z = z_to_idx[{ii, z}];
+            int idx_zp = z_to_idx[{layer_idx, zp}];
+
+            idxpair_to_row.insert(std::make_pair(std::make_pair(idx_z, idx_zp), idx_row));
+
+            idx_row++;
+        }
+    }
+
+
+    // Traverse source z-nodes
+    for (int ii = 0; ii < lm.layers.size(); ii++)
+    {
+        for (int tt = 0; tt < lm.z_nodes[ii].size(); tt++)
+        {
+
+            double zp = lm.z_nodes[ii][tt];
+
+            if (zp == lm.z_nodes[layer_idx][z_idx])
+                continue;
+
+            double z = lm.z_nodes[layer_idx][z_idx];
+
+            int idx_z = z_to_idx[{layer_idx,z}];
+            int idx_zp = z_to_idx[{ii,zp}];
+
+            idxpair_to_row.insert(std::make_pair(std::make_pair(idx_z, idx_zp), idx_row));
+
+            idx_row++;
+        }
+    }
+
+
+
+    int map_size_new = z_to_idx.size();
+
+    if (map_size_new != map_size)
+        std::cout << "MGF::AddTableMaps(): Table indexing have been updated due to adaptive interpolation." << std::endl;
+
+
+    return;
+
+}
+
+/*! \brief Consider one layer first.*/
+void MGF::AddTableMapsRho()
+{
+
+    // ====== Update the map for rho-nodes ======
+
+    rho_to_idx.clear();
+
+    for (int ii = 0; ii < lm.rho_nodes.size(); ii++)
+        rho_to_idx.insert(std::make_pair(lm.rho_nodes[ii], ii));
+
+
+    return;
+
+}
+
+
+
+
 
 /*! \brief Function to retrieve the nearest tabulated row for a given z-zp pair.*/
 int MGF::GetRow(double z, double zp)
@@ -1098,62 +1862,61 @@ int MGF::GetRow(double z, double zp)
 	}
 
 
-	// ====== Locate the index of the z-node nearest to z ======
-
-	std::map<double, int>::iterator z_below = z_to_idx.lower_bound(z);
-	std::map<double, int>::iterator z_above = z_to_idx.upper_bound(z);
+	// ====== Locate the index of the z-node nearest to z using observe layer ======
+	auto z_below = z_to_idx.lower_bound({m, z});
+	auto z_above = z_to_idx.upper_bound({m, z});
 
 	int idx_z;
 	double z_found;
 
-	if (std::abs(z - z_below->first) < 1.0e-15)
+	if (std::abs(z - z_below->first.second) < 1.0e-15)
 	{
 		idx_z = z_below->second;
-		z_found = z_below->first;
+		z_found = z_below->first.second;
 	}
 	else
 	{
 		z_below--;
-	
-		if (std::abs(z - z_below->first) < std::abs(z - z_above->first))
+
+		if (std::abs(z - z_below->first.second) < std::abs(z - z_above->first.second))
 		{
 			idx_z = z_below->second;
-			z_found = z_below->first;
+			z_found = z_below->first.second;
 		}
 		else
 		{
 			idx_z = z_above->second;
-			z_found = z_above->first;
+			z_found = z_above->first.second;
 		}
 	}
 
 
-	// ====== Locate the index of the z-node nearest to zp ======
+	// ====== Locate the index of the z-node nearest to zp using source layer  ======
 
-	std::map<double, int>::iterator zp_below = z_to_idx.lower_bound(zp);
-	std::map<double, int>::iterator zp_above = z_to_idx.upper_bound(zp);
+	auto zp_below = z_to_idx.lower_bound({i, zp});
+	auto zp_above = z_to_idx.upper_bound({i, zp});
 
 	int idx_zp;
 	double zp_found;
 
-	if (std::abs(zp - zp_below->first) < 1.0e-15)
+	if (std::abs(zp - zp_below->first.second) < 1.0e-15)
 	{
 		idx_zp = zp_below->second;
-		zp_found = zp_below->first;
+		zp_found = zp_below->first.second;
 	}
 	else
 	{
 		zp_below--;
-	
-		if (std::abs(zp - zp_below->first) < std::abs(zp - zp_above->first))
+
+		if (std::abs(zp - zp_below->first.second) < std::abs(zp - zp_above->first.second))
 		{
 			idx_zp = zp_below->second;
-			zp_found = zp_below->first;
+			zp_found = zp_below->first.second;
 		}
 		else
 		{
 			idx_zp = zp_above->second;
-			zp_found = zp_above->first;
+			zp_found = zp_above->first.second;
 		}
 	}
 	
@@ -1166,6 +1929,65 @@ int MGF::GetRow(double z, double zp)
 
 }
 
+/*! \brief Function to retrieve the interpolation stencil for a given z and zp.*/
+void MGF::GetStencilZ(double z, std::vector<int> &z_idx_stencil, std::vector<double> &z_stencil)
+{
+
+    if (!initialized)
+    {
+        throw std::logic_error("[ERROR] MGF:GetRow(): Table has not been generated. Call MGF::Initialize() first.");
+    }
+    
+
+    // ====== Locate the index of the z-node nearest to z ======
+
+    int layer_idx = lm.FindLayer(z);
+
+    std::vector<double> nodes = lm.z_nodes[layer_idx];
+
+    if (nodes.size() < s.order_z + 1)
+        z_stencil = nodes;
+    else
+    {
+        auto it = std::lower_bound(nodes.begin(), nodes.end(), z);
+
+        int left = (it - nodes.begin()) - 1;  // iterator arithmetic
+        int right = it - nodes.begin();
+
+        for (int i = 0; i < s.order_z + 1; ++i)
+        {
+            if (left < 0)
+            {
+                z_stencil.push_back(nodes[right++]); // If 'left' is out of bounds, select from the right.
+                continue;
+            }
+            if (right >= nodes.size())
+            {
+                z_stencil.push_back(nodes[left--]); // If 'right' is out of bounds, select from the left.
+                continue;
+            }
+
+            // Compare the absolute difference of the values at the 'left' and 'right' pointers to the target.
+            if (std::abs(z - nodes[left]) < std::abs(z - nodes[right])) {
+                z_stencil.push_back(nodes[left--]); // If left is closer, select it.
+            } else {
+                z_stencil.push_back(nodes[right++]); // Otherwise, select the right.
+            }
+
+        }
+
+        std::sort(z_stencil.begin(), z_stencil.end());
+    }
+
+
+    for (int i = 0; i < z_stencil.size(); i++)
+    {
+        z_idx_stencil.push_back(z_to_idx[{layer_idx, z_stencil[i]}]);
+    }
+
+
+
+}
 
 /*! \brief Function to retrieve the stencil points along rows for a given rho value.*/
 std::vector<int> MGF::GetColumns(double rho)

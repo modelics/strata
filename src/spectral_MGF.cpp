@@ -864,6 +864,17 @@ void SpectralMGF::ComputeKmi(std::array<std::complex<double>, 5> &K)
 		std::complex<double> WIh_mi = (-jkzm/Zm.Yh)*IIh_mi;
 		
 		K[2] = ((km*km/(kzm*kzm))*WIe_mi - WIh_mi)/krhosq;
+
+		/*
+		if (std::abs(std::real(krho) - 537762.71312272199)<1e-10) {
+			std::cout << "WIe_mi = " << WIe_mi << ", at z = " << z << ", at krho = " << krho << ", at (km*km/(kzm*kzm)) = " << (km*km/(kzm*kzm)) << ", at ((km*km/(kzm*kzm))*WIe_mi = " << (km*km/(kzm*kzm))*WIe_mi << std::endl;
+			std::cout << "WIh_mi = " << WIh_mi << ", at z = " << z << ", at krho = " << krho << std::endl;
+			std::cout << "Zdi.Ye = " << Zdi.Ye << ", at z = " << z << ", at krho = " << krho << std::endl;
+			std::cout << "Zm.Ye = " << Zm.Ye << ", at z = " << z << ", at krho = " << krho << std::endl;
+			std::cout << "K[2] = " << K[2] << ", at z = " << z << ", at krho = " << krho << std::endl;
+		}
+		*/
+
 	}
 
 	if (components[3])
@@ -872,6 +883,17 @@ void SpectralMGF::ComputeKmi(std::array<std::complex<double>, 5> &K)
 		std::complex<double> GIh_mi = GIh_ii*TIh;
 		
 		K[3] = (GIe_mi - (ki*ki/krhosq)*((kzm*kzm/(km*km))*GIe_mi - GIh_mi));
+
+		/*
+		DEBUGGING
+		if (std::abs(std::real(krho) - 537762.71312272199)<1e-10) {
+			std::cout << "GIe_mi = " << GIe_mi << ", at z = " << z << ", at krho = " << krho << ", at (kzm*kzm/(km*km)) = " << (kzm*kzm/(km*km)) << std::endl;
+			std::cout << "GIh_mi = " << GIh_mi << ", at z = " << z << ", at krho = " << krho << std::endl;
+			std::cout << "K[3] = " << K[3] << ", at z = " << z << ", at krho = " << krho << std::endl;
+		}
+		*/
+
+
 	}
 
 	if (components[4])

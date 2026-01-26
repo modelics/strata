@@ -23,6 +23,8 @@ include(ExternalProject)
 project(Strata)
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
+# Optionally build documentation
+option(BUILD_DOC "Build the documentation" ON)
 
 # ====== Compiler settings ======
 
@@ -57,47 +59,65 @@ set(WITH_OPENBLAS_LIB "" CACHE PATH "Path to an existing OpenBLAS static library
 set(LIB_EXT ${CMAKE_BINARY_DIR}/external)
 set(BUILD_EXT ${LIB_EXT}/builds)
 
-# ------ OpenBLAS 0.3.29 ------
+# ====== Find MKL ======
 
-set(BLA_VENDOR OpenBLAS)
-if ((NOT WITH_OPENBLAS_INC STREQUAL "") AND
-    (NOT WITH_OPENBLAS_LIB STREQUAL ""))
-    set(OPENBLAS_LIB
-        "${WITH_OPENBLAS_LIB}")
-    set(OPENBLAS_INC "${WITH_OPENBLAS_INC}")
-    add_custom_target(external_openblas)
-else()
-    message(STATUS "Could NOT find OpenBLAS")
-    set(OPENBLAS_ROOT ${BUILD_EXT}/openblas)
-    ExternalProject_Add(external_openblas
-        URL https://github.com/OpenMathLib/OpenBLAS/releases/download/v0.3.29/OpenBLAS-0.3.29.tar.gz
-        URL_HASH MD5=853a0c5c0747c5943e7ef4bbb793162d
-        PREFIX ${OPENBLAS_ROOT}
-        BUILD_IN_SOURCE ON
-        CONFIGURE_COMMAND ""
-        BUILD_COMMAND make
-        INSTALL_COMMAND make PREFIX=${OPENBLAS_ROOT} install
-    )
-    set(OPENBLAS_LIB
-        "${OPENBLAS_ROOT}/lib/${CMAKE_SHARED_LIBRARY_PREFIX}openblas${CMAKE_SHARED_LIBRARY_SUFFIX}")
-    set(OPENBLAS_INC "${OPENBLAS_ROOT}/include")
+set(MKL_INTERFACE lp64)
+set(MKL_MPI openmpi)
+set(MKL_THREADING gnu_thread)
+
+find_package(MKL CONFIG QUIET PATHS $ENV{MKLROOT})
+
+set(MKL_INC ${MKL_INCLUDE})
+set(MKL_LIB MKL::MKL)
+
+if(NOT MKL_FOUND)
+	# ------ OpenBLAS 0.3.29 ------
+	set(BLA_VENDOR OpenBLAS)
+	if ((NOT WITH_OPENBLAS_INC STREQUAL "") AND
+	    (NOT WITH_OPENBLAS_LIB STREQUAL ""))
+	    set(OPENBLAS_LIB
+		"${WITH_OPENBLAS_LIB}")
+	    set(OPENBLAS_INC "${WITH_OPENBLAS_INC}")
+	    add_custom_target(external_openblas)
+	else()
+	    message(STATUS "Could NOT find OpenBLAS")
+	    set(OPENBLAS_ROOT ${BUILD_EXT}/openblas)
+	    ExternalProject_Add(external_openblas
+		URL https://github.com/OpenMathLib/OpenBLAS/releases/download/v0.3.29/OpenBLAS-0.3.29.tar.gz
+		URL_HASH MD5=853a0c5c0747c5943e7ef4bbb793162d
+		PREFIX ${OPENBLAS_ROOT}
+		BUILD_IN_SOURCE ON
+		CONFIGURE_COMMAND ""
+		BUILD_COMMAND make
+		INSTALL_COMMAND make PREFIX=${OPENBLAS_ROOT} install
+	    )
+	    set(OPENBLAS_LIB
+		"${OPENBLAS_ROOT}/lib/${CMAKE_SHARED_LIBRARY_PREFIX}openblas${CMAKE_SHARED_LIBRARY_SUFFIX}")
+	    set(OPENBLAS_INC "${OPENBLAS_ROOT}/include")
+	endif()
 endif()
 
 # ------ Boost ------
 
 # ./bcp math/quadrature math/special_functions/bessel.hpp ../../../../../../../boost_1_76_0_selected --boost=../../../../../../../boost_1_76_0
 
-set(BOOST_ROOT ${BUILD_EXT}/boost_1_76_0_selected)
-ExternalProject_Add(external_boost
-    URL ${CMAKE_CURRENT_SOURCE_DIR}/external/boost_1_76_0_selected.tar.gz
-    URL_HASH SHA256=a3b5990412456c7a528c255132677644e8add4f3d6b50e864667813a9bd43afb
-    PREFIX ${BOOST_ROOT}
-    SOURCE_DIR ${LIB_EXT}/boost_1_76_0_selected
-    CONFIGURE_COMMAND tar "xzf" ${CMAKE_CURRENT_SOURCE_DIR}/external/boost_1_76_0_selected.tar.gz --strip-components=1 -C ${BOOST_ROOT}
-    BUILD_COMMAND ""
-    INSTALL_COMMAND ""
-)
-set(BOOST_INC ${BOOST_ROOT})
+find_package(Boost QUIET)
+
+if (NOT Boost_FOUND)
+    set(BOOST_ROOT ${BUILD_EXT}/boost_1_76_0_selected)
+    ExternalProject_Add(external_boost
+        URL ${CMAKE_CURRENT_SOURCE_DIR}/external/boost_1_76_0_selected.tar.gz
+        URL_HASH SHA256=a3b5990412456c7a528c255132677644e8add4f3d6b50e864667813a9bd43afb
+        PREFIX ${BOOST_ROOT}
+        SOURCE_DIR ${LIB_EXT}/boost_1_76_0_selected
+        CONFIGURE_COMMAND tar "xzf" ${CMAKE_CURRENT_SOURCE_DIR}/external/boost_1_76_0_selected.tar.gz --strip-components=1 -C ${BOOST_ROOT}
+        BUILD_COMMAND ""
+        INSTALL_COMMAND ""
+    )
+    set(BOOST_INC ${BOOST_ROOT})
+else()
+    set(BOOST_INC ${Boost_INCLUDE_DIRS})
+endif()
 
 # ------ AmosBessel ------
 
@@ -121,38 +141,54 @@ set(AmosBessel_INC "${AMOSBESSEL_ROOT}/include/AmosBessel")
 
 # ------ yaml-cpp 0.6.3 ------
 
-set(YAML_CPP_ROOT ${BUILD_EXT}/yaml-cpp)
-ExternalProject_Add(external_yaml_cpp
-    GIT_REPOSITORY https://github.com/jbeder/yaml-cpp.git
-    GIT_TAG 9a3624205e8774953ef18f57067b3426c1c5ada6
-    PREFIX ${YAML_CPP_ROOT}
-    CMAKE_ARGS -DYAML_BUILD_SHARED_LIBS=ON -DCMAKE_INSTALL_PREFIX=${YAML_CPP_ROOT}
-)
+find_package(yaml-cpp QUIET)
 
-set(YAML_LIB
-"${YAML_CPP_ROOT}/lib/${CMAKE_SHARED_LIBRARY_PREFIX}yaml-cpp${CMAKE_SHARED_LIBRARY_SUFFIX}")
-set(YAML_INC "${YAML_CPP_ROOT}/include")
+if (NOT yaml_cpp_FOUND)
+	set(YAML_CPP_ROOT ${BUILD_EXT}/yaml-cpp)
+	ExternalProject_Add(external_yaml_cpp
+	    GIT_REPOSITORY https://github.com/jbeder/yaml-cpp.git
+	    GIT_TAG 9a3624205e8774953ef18f57067b3426c1c5ada6
+	    PREFIX ${YAML_CPP_ROOT}
+	    CMAKE_ARGS -DYAML_BUILD_SHARED_LIBS=ON -DCMAKE_INSTALL_PREFIX=${YAML_CPP_ROOT}
+	)
+	
+	set(YAML_LIB "${YAML_CPP_ROOT}/lib/${CMAKE_SHARED_LIBRARY_PREFIX}yaml-cpp${CMAKE_SHARED_LIBRARY_SUFFIX}")
+	set(YAML_INC "${YAML_CPP_ROOT}/include")
+else()
+	set(YAML_LIB ${yaml-cpp_INCLUDE_DIRS})
+	set(YAML_INC ${yaml-cpp_LIBRARIES})	
+endif()
 
 # ------ Documentation ------
 
-add_custom_target(doc COMMAND cd ${CMAKE_CURRENT_SOURCE_DIR}/doc && ./generate_docs.sh)
-
+if (BUILD_DOC)
+    add_custom_target(doc COMMAND cd ${CMAKE_CURRENT_SOURCE_DIR}/doc && ./generate_docs.sh)
+endif()
 
 # ====== Strata ======
 
-get_filename_component(OPENBLAS_LIB_DIR ${OPENBLAS_LIB} DIRECTORY)
+if(NOT MKL_FOUND)
+	set(BLAS_LIB ${OPENBLAS_LIB})
+	set(BLAS_INC ${OPENBLAS_INC})
+else()
+	add_compile_definitions(USE_MKL)
+	set(BLAS_LIB ${MKL_LIB})
+	set(BLAS_INC ${MKL_INC})	
+endif()
+
+get_filename_component(BLAS_LIB_DIR ${BLAS_LIB} DIRECTORY)
 get_filename_component(AmosBessel_LIB_DIR ${AmosBessel_LIB} DIRECTORY)
 get_filename_component(YAML_LIB_DIR ${YAML_LIB} DIRECTORY)
 
 set(CMAKE_SKIP_BUILD_RPATH FALSE)
 set(CMAKE_BUILD_WITH_INSTALL_RPATH FALSE)
-set(CMAKE_INSTALL_RPATH ${OPENBLAS_LIB_DIR} ${AmosBessel_LIB_DIR} ${YAML_LIB_DIR} ${CMAKE_INSTALL_PREFIX}/lib)
+set(CMAKE_INSTALL_RPATH ${BLAS_LIB_DIR} ${AmosBessel_LIB_DIR} ${YAML_LIB_DIR} ${CMAKE_INSTALL_PREFIX}/lib)
 set(CMAKE_INSTALL_RPATH_USE_LINK_PATH FALSE)
 
 set(EXECUTABLE_OUTPUT_PATH ${CMAKE_BINARY_DIR})
 
 SET(INCLUDE_DIR
-    ${OPENBLAS_INC}
+    ${BLAS_INC}
     ${BOOST_INC}
     ${AmosBessel_INC}
     ${YAML_INC}
@@ -170,13 +206,25 @@ SET(MGF_SRC
 )
 
 add_library(strata SHARED ${MGF_SRC})
-target_link_libraries(strata ${OPENBLAS_LIB} ${AmosBessel_LIB} ${YAML_LIB})
+target_link_libraries(strata ${BLAS_LIB} ${AmosBessel_LIB} ${YAML_LIB})
 target_include_directories(strata PRIVATE ${INCLUDE_DIR})
-if ((WITH_OPENBLAS_INC STREQUAL "") OR
-    (WITH_OPENBLAS_LIB STREQUAL ""))
-    add_dependencies(strata external_openblas external_amosbessel external_yaml_cpp external_boost doc)
+
+# Add OpenBLAS dependency if externally downloaded
+if (((WITH_OPENBLAS_INC STREQUAL "") OR
+    (WITH_OPENBLAS_LIB STREQUAL "")) AND NOT MKL_FOUND)
+    add_dependencies(strata external_openblas external_amosbessel)
 else ()
-    add_dependencies(strata external_amosbessel external_yaml_cpp external_boost doc)
+    add_dependencies(strata external_amosbessel)
+endif()
+
+# Add YAML-CPP dependency if externally downloaded
+if (NOT yaml_cpp_FOUND)
+    add_dependencies(strata external_yaml_cpp)
+endif()
+
+# Add Boost dependency if externally downloaded
+if (NOT Boost_FOUND)
+    add_dependencies(strata external_boost)
 endif()
 
 install(TARGETS strata DESTINATION ${CMAKE_INSTALL_PREFIX}/lib)
