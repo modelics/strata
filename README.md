@@ -109,7 +109,7 @@ We request that you acknowledge the authors of Strata by citing the following:
 ```
 ## Issues and Improvements
 
-We encourage users to report problems and suggest improvements by opening an (issue on GitHub)[https://github.com/modelics/strata/issues].
+We encourage users to report problems and suggest improvements by opening an [issue on GitHub](https://github.com/modelics/strata/issues).
 
 We also encourage users to help in our goal of providing a high-quality library for layered medium Green's functions by contributing features and new formulations.
 
