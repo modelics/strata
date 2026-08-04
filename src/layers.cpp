@@ -116,21 +116,55 @@ void LayerManager::ProcessTechFile_yaml(std::string tech_file, double units)
 
 			double zmin = layer["zmin"].as<double> ();
 			double h = layer["h"].as<double> ();
-			
+
 			zmin *= units;
 			h *= units;
 			double zmax = zmin + h;
 
-			double epsr_real = layer["epsr"].as<double> (1.0);
 			double mur = layer["mur"].as<double> (1.0);
-			double epsr_im = layer["epsr_im"].as<double> (0.0);
-			double sigma = layer["sigma"].as<double> (0.0);
 			double sigmamu = layer["sigmamu"].as<double> (0.0);
 
-			std::complex<double> epsr = {epsr_real, epsr_im};
+			if (layer["epsr"] && layer["epsr"].IsMap())
+			{
+				// Frequency-dependent dispersion model
+				const YAML::Node &m = layer["epsr"];
+				std::string model_name = m["model"].as<std::string> ();
 
-			// Add this layer to the full layer-set
-			AddLayer(zmin, zmax, epsr, mur, sigma, sigmamu);
+				if (model_name != "djordjevic_sarkar")
+					throw std::runtime_error("[ERROR] LayerManager::ProcessTechFile_yaml(): Unknown dielectric model '" + model_name + "' in layer " + label);
+
+				DjordjevicSarkarParams ds;
+				ds.relative_permittivity = m["relative_permittivity"].as<double> ();
+				ds.loss_tangent = m["loss_tangent"].as<double> ();
+				ds.at_frequency = m["at_frequency"].as<double> (1e9);
+				ds.conductivity_at_dc = m["conductivity_at_dc"].as<double> (1e-12);
+				ds.lower_frequency = m["lower_frequency"].as<double> (1e3);
+				ds.upper_frequency = m["upper_frequency"].as<double> (1e11);
+				if (m["relative_permittivity_at_dc"])
+					ds.relative_permittivity_at_dc = m["relative_permittivity_at_dc"].as<double> ();
+
+				// Validation (mirrors HFSS: dk > 1, df >= 0)
+				if (ds.relative_permittivity <= 1.0)
+					throw std::runtime_error("[ERROR] LayerManager::ProcessTechFile_yaml(): djordjevic_sarkar relative_permittivity must be > 1 in layer " + label);
+				if (ds.loss_tangent < 0.0)
+					throw std::runtime_error("[ERROR] LayerManager::ProcessTechFile_yaml(): djordjevic_sarkar loss_tangent must be >= 0 in layer " + label);
+
+				// Placeholder epsr, overwritten per-frequency in ProcessLayers. DC loss is carried by sigma.
+				std::complex<double> epsr = {ds.relative_permittivity, 0.0};
+				AddLayer(zmin, zmax, epsr, mur, ds.conductivity_at_dc, sigmamu, DielectricModelType::DJORDJEVIC_SARKAR, ds);
+			}
+			else
+			{
+				// Constant (frequency-independent) permittivity
+				double epsr_real = layer["epsr"].as<double> (1.0);
+				double epsr_im = layer["epsr_im"].as<double> (0.0);
+				double sigma = layer["sigma"].as<double> (0.0);
+
+				std::complex<double> epsr = {epsr_real, epsr_im};
+
+				// Add this layer to the full layer-set
+				AddLayer(zmin, zmax, epsr, mur, sigma, sigmamu);
+			}
 		}
 	}
 	else
@@ -311,7 +345,7 @@ void LayerManager::ProcessTechFile_tech(std::string tech_file, double units)
 
 
 /*! \brief Function to add a new layer to the layer set. It is the user's responsibility to make sure that the z_min and z_max do not overlap with the z-extent of any other layer in the set.*/
-void LayerManager::AddLayer(double zmin, double zmax, std::complex<double> epsr, double mur, double sigma, double sigmamu)
+void LayerManager::AddLayer(double zmin, double zmax, std::complex<double> epsr, double mur, double sigma, double sigmamu, DielectricModelType model, DjordjevicSarkarParams ds)
 {
 
 	if (zmax - zmin <= 0.0)
@@ -340,6 +374,8 @@ void LayerManager::AddLayer(double zmin, double zmax, std::complex<double> epsr,
 
 	// Create a new layer
 	Layer layer (zmin, zmax, epsr, mur, sigma, sigmamu);
+	layer.dielectric_model = model;
+	layer.ds_params = ds;
 	layers.insert(layers.begin() + position, layer);
 	
 	return;
@@ -364,6 +400,34 @@ void LayerManager::SetHalfspaces(double _epsr_top, double _mur_top, double _sigm
 	isPEC_bot = _isPEC_bot;
 
 	return;
+
+}
+
+
+/*! \brief Evaluates the causal Djordjevic-Sarkar complex relative permittivity at angular frequency omega. Derives eps_inf and delta_eps so that Re[epsr] and tan(delta) match the specified values at the measurement frequency.*/
+static std::complex<double> ComputeDjordjevicSarkar(const DjordjevicSarkarParams &p, double omega)
+{
+
+	const double omega_ref = 2.0*M_PI*p.at_frequency;
+	const double omega1 = 2.0*M_PI*p.lower_frequency;
+	const double omega2 = 2.0*M_PI*p.upper_frequency;
+	const double ln_ratio = std::log(omega2/omega1);
+
+	// Log term of the D-S model evaluated at the measurement frequency
+	std::complex<double> log_ref = std::log(std::complex<double>(omega2, omega_ref) / std::complex<double>(omega1, omega_ref));
+
+	// Solve the two anchor conditions:
+	//   Re[epsr(omega_ref)] = relative_permittivity
+	//   -Im[epsr(omega_ref)]/Re[epsr(omega_ref)] = loss_tangent
+	double delta_eps = -p.relative_permittivity*p.loss_tangent*ln_ratio / log_ref.imag();
+	double eps_inf = p.relative_permittivity - delta_eps*log_ref.real()/ln_ratio;
+
+	// Evaluate the model at the requested frequency
+	std::complex<double> log_f = std::log(std::complex<double>(omega2, omega) / std::complex<double>(omega1, omega));
+
+	return eps_inf + delta_eps*log_f/ln_ratio;
+	// Note: DC conductivity is stored in Layer::sigma and handled by the existing
+	// epsilon_complex lambda (the -sigma/omega term) in ProcessLayers.
 
 }
 
@@ -413,6 +477,9 @@ void LayerManager::ProcessLayers(double f)
 	{
 
 		layers[ii].layerID = ii;
+
+		if (layers[ii].dielectric_model == DielectricModelType::DJORDJEVIC_SARKAR)
+			layers[ii].epsr = ComputeDjordjevicSarkar(layers[ii].ds_params, omega);
 
 		eps[ii] = epsilon_complex(eps0, layers[ii].epsr, layers[ii].sigma, omega);
 		mu[ii] = std::complex<double> ((layers[ii].mur * mu0), 0.0);
@@ -858,8 +925,12 @@ void LayerManager::MergeLayersWithSameMaterial(double tol)
 
 		int jj = ii - 1; // The layer above
 
-		// Check if the layer above is of the same material as this one
-		if (std::abs(layers[ii].epsr - layers[jj].epsr) < tol &&
+		// Check if the layer above is of the same material as this one. Layers using a
+		// dispersion model are never merged, since their stored epsr is a placeholder that
+		// does not capture the model parameters.
+		if (layers[ii].dielectric_model == DielectricModelType::CONSTANT &&
+		    layers[jj].dielectric_model == DielectricModelType::CONSTANT &&
+		    std::abs(layers[ii].epsr - layers[jj].epsr) < tol &&
 		    std::abs(layers[ii].mur - layers[jj].mur) < tol &&
 		    std::abs(layers[ii].epsr.real() - layers[jj].epsr.imag()) < tol &&
 		    std::abs(layers[ii].sigma - layers[jj].sigma) < tol &&
