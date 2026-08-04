@@ -39,6 +39,23 @@
 #include <set>
 
 
+/*! \brief Selects the dielectric dispersion model used for a layer's permittivity.*/
+enum class DielectricModelType { CONSTANT, DJORDJEVIC_SARKAR };
+
+
+/*! \brief Parameters of the causal Djordjevic-Sarkar wideband dielectric model. Field names follow the HFSS Djordjevic-Sarkar Model Input dialog.*/
+struct DjordjevicSarkarParams
+{
+	double relative_permittivity;             /// dk at the measurement frequency
+	double loss_tangent;                      /// df (tan delta) at the measurement frequency
+	double at_frequency = 1e9;                /// measurement frequency [Hz]
+	double conductivity_at_dc = 1e-12;        /// DC conductivity [S/m]
+	double relative_permittivity_at_dc = -1.0; /// permittivity at DC; negative means not set
+	double lower_frequency = 1e3;             /// lower transition (corner) frequency [Hz]
+	double upper_frequency = 1e11;            /// upper transition (corner) frequency [Hz]
+};
+
+
 /*! \brief Class to store and manage frequency-dependent information for each layer.*/
 class Layer
 {
@@ -49,6 +66,8 @@ public:
 	int layerID;
 	double zmax, zmin, h, sigma, mur, sigmamu;
 	std::complex<double> epsr;
+	DielectricModelType dielectric_model = DielectricModelType::CONSTANT;
+	DjordjevicSarkarParams ds_params;
 	std::vector<int> objectIDs;   /// List of indices of objects that belong to this layer
 	std::vector<double> obj_zmin, obj_zmax;  /// Min and max z extent of each object
 
@@ -88,7 +107,7 @@ public:
 	void ProcessTechFile_yaml(std::string tech_file, double units = 1.0e-9);
 	void ProcessTechFile_tech(std::string tech_file, double units = 1.0e-9);
 	
-	void AddLayer(double zmin, double zmax, std::complex<double> epsr, double mur, double sigma, double sigmamu);
+	void AddLayer(double zmin, double zmax, std::complex<double> epsr, double mur, double sigma, double sigmamu, DielectricModelType model = DielectricModelType::CONSTANT, DjordjevicSarkarParams ds = {});
 	void SetHalfspaces(double _epsr_top, double _mur_top, double _sigma_top, double _epsr_bot, double _mur_bot, double _sigma_bot, bool _isPEC_top, bool _isPEC_bot);
 	
 	void ProcessLayers(double f);

@@ -49,3 +49,7 @@ add_executable(testSpectralMGF ${SRC_DIR}/testSpectralMGF.cpp)
 target_include_directories(testSpectralMGF PRIVATE ${INC_DIR} ${STRATA_INC})
 target_link_libraries(testSpectralMGF PRIVATE strata)
 
+add_executable(testDjordjevicSarkar ${SRC_DIR}/testDjordjevicSarkar.cpp)
+target_include_directories(testDjordjevicSarkar PRIVATE ${INC_DIR} ${STRATA_INC})
+target_link_libraries(testDjordjevicSarkar PRIVATE strata)
+
