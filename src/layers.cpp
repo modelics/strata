@@ -695,7 +695,27 @@ void LayerManager::PrintLayerData(std::ofstream *out_file, bool print_to_termina
 		message += "zmax: " + std::to_string(layers[ii].zmax) + "\n";
 		message += "zmin: " + std::to_string(layers[ii].zmin) + "\n";
 		message += "Height: " + std::to_string(layers[ii].h) + "\n";
-		message += "Relative permittivity: " + std::to_string(layers[ii].epsr.real()) + get_signed_imag_string(layers[ii].epsr.imag()) + "\n";
+		if (layers[ii].dielectric_model == DielectricModelType::DJORDJEVIC_SARKAR)
+		{
+			const auto &ds = layers[ii].ds_params;
+			message += "Dielectric model: Djordjevic-Sarkar (causal wideband)\n";
+			message += "  Relative permittivity at " + std::to_string(ds.at_frequency) + " Hz: " + std::to_string(ds.relative_permittivity) + "\n";
+			message += "  Loss tangent at " + std::to_string(ds.at_frequency) + " Hz: " + std::to_string(ds.loss_tangent) + "\n";
+			message += "  Lower corner frequency: " + std::to_string(ds.lower_frequency) + " Hz\n";
+			message += "  Upper corner frequency: " + std::to_string(ds.upper_frequency) + " Hz\n";
+			message += "  DC conductivity: " + std::to_string(ds.conductivity_at_dc) + " S/m\n";
+			if (layers_processed)
+			{
+				double tand_eff = (layers[ii].epsr.real() > 0.0) ? -layers[ii].epsr.imag() / layers[ii].epsr.real() : 0.0;
+				message += "  Effective epsr (at last evaluated freq): " + std::to_string(layers[ii].epsr.real()) + get_signed_imag_string(layers[ii].epsr.imag()) + "\n";
+				message += "  Effective tan(delta): " + std::to_string(tand_eff) + "\n";
+			}
+		}
+		else
+		{
+			message += "Dielectric model: constant\n";
+			message += "Relative permittivity: " + std::to_string(layers[ii].epsr.real()) + get_signed_imag_string(layers[ii].epsr.imag()) + "\n";
+		}
 		message += "Relative permeability: " + std::to_string(layers[ii].mur) + "\n";
 		message += "Electrical conductivity: " + std::to_string(layers[ii].sigma) + "\n";
 		if (layers_processed)
