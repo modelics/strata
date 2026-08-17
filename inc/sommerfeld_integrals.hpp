@@ -155,9 +155,12 @@ inline std::complex<double> IntegrateSpectralFarField(SpectralMGF &smgf, double 
 			return SommerfeldIntegrand(smgf, rho, krho, component, order, curl);
 		};
 
-	// For small rho, Bessel function oscillations are slow, so use quadrature
-	// if (rho/(2.0*M_PI/std::real(smgf.lm->k_max)) < 0.01)
-	if (rho < 1.0e-15)
+	// For small rho the Bessel oscillations are so slow that partition-extrapolation
+	// would place its partitions at enormous krho, where the tail integrand underflows
+	// (and the Levin-Sidi remainder reciprocal then overflows to Inf -> NaN). When rho is
+	// below ~1% of the shortest wavelength, integrate the tail directly instead.
+	double lambda_min = 2.0*M_PI/std::real(smgf.lm->k_max);
+	if (rho < 0.01*lambda_min)
 	{
 		std::complex<double> result = 0.0;
 		GaussKronrodBoost(f, a, std::numeric_limits<double>::infinity(), tol, result);
@@ -274,7 +277,10 @@ void PartExtrap(const F f, double a, double q, double tol, std::complex<double> 
 		X[kk] = X[kk-1] + q;
 		TanhSinh(f, X[kk-1], X[kk], eps, u);
 
-		if (std::abs(u) == 0.0)
+		// Skip partitions whose value is zero or subnormal: they contribute nothing
+		// meaningful to the tail sum, and feeding a subnormal to the Levin-Sidi
+		// remainder estimate (B[k] = 1.0/u) would overflow to Inf and poison the result.
+		if (std::abs(u) < std::numeric_limits<double>::min())
 			continue;
 
 		// Execute extrapolation		
