@@ -35,6 +35,7 @@
 #include <vector>
 #include <stdexcept>
 #include <numeric>
+#include <limits>
 
 #include "MGF.hpp"
 #include "layers.hpp"
@@ -231,6 +232,7 @@ void MGF::Initialize(double _f, LayerManager &_lm, MGF_settings &_s)
 	return;
 	
 }
+
 
 /*! \brief Consider one layer first*/
 void MGF::AdaptiveInterpolation()
@@ -916,35 +918,76 @@ void MGF::ComputeMGF_Integration(double rho, double z, double zp, std::array<std
 	smgf.SetSourcePoint(zp);
 	smgf.SetObservationPoint(z);
 
-	if (s.components[0])
+	// Each Sommerfeld integral consumes exactly one MGF component.  Computing
+	// every enabled spectral component at every quadrature point repeats most
+	// of the expensive transmission-line work for components that the current
+	// integral discards.  Restrict the spectral and quasistatic engines to the
+	// component being integrated, then restore the caller's component mask.
+	const std::vector<bool> spectral_components = smgf.components;
+	const std::vector<bool> quasistatic_components = smgf.qmgf.components;
+	auto select_component = [this](int component)
 	{
+		std::fill(smgf.components.begin(), smgf.components.end(), false);
+		std::fill(smgf.qmgf.components.begin(), smgf.qmgf.components.end(), false);
+		smgf.components[component] = true;
+		smgf.qmgf.components[component] = true;
+	};
+
+	// K[0] is the transmission-line voltage Green function.  It vanishes
+	// exactly when either endpoint lies on a PEC bounding interface.  Direct
+	// quadrature at that interface otherwise spends thousands of evaluations
+	// cancelling the incident and reflected terms down to roundoff.
+	auto same_coordinate = [](double lhs, double rhs)
+	{
+		const double scale = std::max({1.0, std::abs(lhs), std::abs(rhs)});
+		return std::abs(lhs - rhs) <= 64.0*std::numeric_limits<double>::epsilon()*scale;
+	};
+	const int bottom_layer = static_cast<int>(lm.layers.size()) - 1;
+	const bool source_on_pec =
+		(lm.isPEC_top && i == 0 && same_coordinate(zp, lm.GetZmax(i))) ||
+		(lm.isPEC_bot && i == bottom_layer && same_coordinate(zp, lm.GetZmin(i)));
+	const bool observation_on_pec =
+		(lm.isPEC_top && m == 0 && same_coordinate(z, lm.GetZmax(m))) ||
+		(lm.isPEC_bot && m == bottom_layer && same_coordinate(z, lm.GetZmin(m)));
+	const bool component0_zero_at_pec = source_on_pec || observation_on_pec;
+
+	if (s.components[0] && !component0_zero_at_pec)
+	{
+		select_component(0);
 		G[0] = IntegrateSpectralFarField(smgf, rho, 0, 0, s.switching_point);
 		G[0] += IntegrateSpectralNearField(smgf, rho, 0, 0, s.switching_point);
 	}
 	
 	if (s.components[1])
 	{
+		select_component(1);
 		G[1] = IntegrateSpectralFarField(smgf, rho, 1, 1, s.switching_point);
 		G[1] += IntegrateSpectralNearField(smgf, rho, 1, 1, s.switching_point);
 	}
 
 	if (s.components[2])
 	{
+		select_component(2);
 		G[2] = IntegrateSpectralFarField(smgf, rho, 2, 1, s.switching_point);
 		G[2] += IntegrateSpectralNearField(smgf, rho, 2, 1, s.switching_point);
 	}
 
 	if (s.components[3])
 	{
+		select_component(3);
 		G[3] = IntegrateSpectralFarField(smgf, rho, 3, 0, s.switching_point);
 		G[3] += IntegrateSpectralNearField(smgf, rho, 3, 0, s.switching_point);
 	}
 
 	if (s.components[4])
 	{
+		select_component(4);
 		G[4] = IntegrateSpectralFarField(smgf, rho, 4, 0, s.switching_point);
 		G[4] += IntegrateSpectralNearField(smgf, rho, 4, 0, s.switching_point);
 	}
+
+	smgf.components = spectral_components;
+	smgf.qmgf.components = quasistatic_components;
 
 	return;
 
@@ -969,29 +1012,46 @@ void MGF::ComputeCurlMGF_Integration(double rho, double z, double zp, std::array
 	smgf.SetSourcePoint(zp);
 	smgf.SetObservationPoint(z);
 
+	const std::vector<bool> spectral_components_curl = smgf.components_curl;
+	const std::vector<bool> quasistatic_components_curl = smgf.qmgf.components_curl;
+	auto select_curl_component = [this](int component)
+	{
+		std::fill(smgf.components_curl.begin(), smgf.components_curl.end(), false);
+		std::fill(smgf.qmgf.components_curl.begin(), smgf.qmgf.components_curl.end(), false);
+		smgf.components_curl[component] = true;
+		smgf.qmgf.components_curl[component] = true;
+	};
+
 	if (s.components_curl[0])
 	{
+		select_curl_component(0);
 		G[0] = IntegrateSpectralFarField(smgf, rho, 0, 2, s.switching_point, true);
 		G[0] += IntegrateSpectralNearField(smgf, rho, 0, 2, s.switching_point, true);
 	}
 	
 	if (s.components_curl[1])
 	{
+		select_curl_component(1);
 		G[1] = IntegrateSpectralFarField(smgf, rho, 1, 0, s.switching_point, true);
 		G[1] += IntegrateSpectralNearField(smgf, rho, 1, 0, s.switching_point, true);
 	}
 
 	if (s.components_curl[2])
 	{
+		select_curl_component(2);
 		G[2] = IntegrateSpectralFarField(smgf, rho, 2, 1, s.switching_point, true);
 		G[2] += IntegrateSpectralNearField(smgf, rho, 2, 1, s.switching_point, true);
 	}
 
 	if (s.components_curl[3])
 	{
+		select_curl_component(3);
 		G[3] = IntegrateSpectralFarField(smgf, rho, 3, 1, s.switching_point, true);
 		G[3] += IntegrateSpectralNearField(smgf, rho, 3, 1, s.switching_point, true);
 	}
+
+	smgf.components_curl = spectral_components_curl;
+	smgf.qmgf.components_curl = quasistatic_components_curl;
 
 	return;
 
@@ -2188,5 +2248,3 @@ int MGF::ExportTable(std::vector<std::vector<table_entry<N>>> &table, std::strin
 	return 0;
 
 }
-
-
