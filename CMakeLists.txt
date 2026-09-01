@@ -47,6 +47,39 @@ if (NOT CMAKE_BUILD_TYPE)
   set(CMAKE_BUILD_TYPE Release)
 endif ()
 
+# ------------------------------------------------------------------------------
+# Fast complex arithmetic (opt-in numerical relaxation)
+#
+# When ON, the strata library is compiled with -fcx-limited-range. That flag makes
+# the compiler evaluate complex multiplication/division with the simple textbook
+# formulas inline, instead of calling libgcc's __muldc3 / __divdc3 helpers, which
+# implement the full C99 Annex G rules (extra inf/NaN/overflow scaling).
+#
+# Why it matters: in low-frequency multilayer Green's function (MGF) evaluation,
+# complex division via __divdc3 was measured (perf) at ~14% of total runtime.
+# Enabling this flag cut the "Convolution matrix initialization" wall time by ~17%
+# on a 1 kHz microstrip test (1935 s -> 1609 s), with the solver taking the same
+# number of iterations and S-parameters matching to the numerical floor.
+#
+# Trade-off: -fcx-limited-range does NOT robustly handle complex values near
+# overflow/underflow or involving inf/NaN. It is safe when magnitudes are well
+# scaled (as in the validated MGF cases). Turn it OFF if you ever see NaN/inf in
+# results at extreme scales.
+#
+# Scope: this is applied ONLY to the `strata` target (see target_compile_options
+# below), so it never changes how a parent project such as Rebel compiles its own
+# sources -- only strata's objects get the flag.
+#
+# NOTE for Rebel builds: Rebel compiles strata as an isolated CMake ExternalProject,
+# so a -D flag given to Rebel's top-level configure does NOT propagate in here; a
+# Rebel build uses this option's DEFAULT value. To enable it for a Rebel build,
+# either flip the default below to ON, or add -DSTRATA_FAST_COMPLEX_ARITHMETIC=ON
+# to the external_strata CMAKE_ARGS in Rebel's CMakeLists.
+# ------------------------------------------------------------------------------
+option(STRATA_FAST_COMPLEX_ARITHMETIC
+       "Compile strata with -fcx-limited-range (faster complex mul/div; relaxes inf/NaN/overflow handling)"
+       OFF)
+
 
 # ====== Users' settings ======
 
@@ -208,6 +241,15 @@ SET(MGF_SRC
 add_library(strata SHARED ${MGF_SRC})
 target_link_libraries(strata ${BLAS_LIB} ${AmosBessel_LIB} ${YAML_LIB})
 target_include_directories(strata PRIVATE ${INCLUDE_DIR})
+
+# Fast complex arithmetic: apply -fcx-limited-range to strata objects only.
+# See the STRATA_FAST_COMPLEX_ARITHMETIC option (with rationale) near the top.
+if (STRATA_FAST_COMPLEX_ARITHMETIC)
+    target_compile_options(strata PRIVATE -fcx-limited-range)
+    message(STATUS "strata: -fcx-limited-range ENABLED (fast complex arithmetic; relaxed inf/NaN handling)")
+else ()
+    message(STATUS "strata: -fcx-limited-range disabled (set -DSTRATA_FAST_COMPLEX_ARITHMETIC=ON to enable)")
+endif ()
 
 # Add OpenBLAS dependency if externally downloaded
 if (((WITH_OPENBLAS_INC STREQUAL "") OR
