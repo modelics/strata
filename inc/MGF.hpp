@@ -216,7 +216,7 @@ private:
     void AddTableMapsZ(int layer_idx, int z_idx, int z_new_idx);
     void AddTableMapsRho();
 	int GetRow(double z, double zp);
-    void GetStencilZ(double z, std::vector<int> &z_idx_stencil, std::vector<double> &z_stencil);
+    void GetStencilZ(double z, int layer_idx, std::vector<int> &z_idx_stencil, std::vector<double> &z_stencil);
 	std::vector<int> GetColumns(double rho);
     void UpdateZNodes();
     void UpdateRhoNodes();

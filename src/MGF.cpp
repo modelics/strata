@@ -32,6 +32,7 @@
 
 #include <cmath>
 #include <complex>
+#include <iostream>
 #include <vector>
 #include <stdexcept>
 #include <numeric>
@@ -48,6 +49,19 @@
 
 using namespace strata;
 
+
+static void PrintOpenMPTableInfo(int num_threads, int max_threads,
+                                 int layers, int active_layers,
+                                 int only_layer, int total_rows, int rho_nodes)
+{
+    std::cout << "\n[OMP] num_threads=" << num_threads
+              << ", max_threads=" << max_threads << '\n';
+    std::cout << "[OMP] L=" << layers
+              << ", nActive=" << active_layers
+              << ", onlyLayer=" << only_layer
+              << ", totalRows=" << total_rows
+              << ", R=" << rho_nodes << std::endl;
+}
 
 // ==================================================================================
 // Interface
@@ -281,6 +295,8 @@ void MGF::UpdateZNodes()
             int i = lm.FindLayer(z_test);
             int m = lm.FindLayer(z_src);
             smgf.SetLayers(i, m);
+            this->i = i;
+            this->m = m;
             bool is_Midpoint_Correct = IsMidpointCorrect(rho_test, z_src, z_test, s.adaptive_threshold, false);
 
             if (!is_Midpoint_Correct)
@@ -467,6 +483,8 @@ void MGF::TestAddRhoTableRecursive(double rho_test, double rho_spacing, double z
         int i = lm.FindLayer(z_test);
         int m = lm.FindLayer(z_src);
         smgf.SetLayers(i, m);
+        this->i = i;
+        this->m = m;
 
         bool add_point_to_table = IsMidpointCorrect(rho_tests_l1[jj], z_test, z_src, s.adaptive_threshold, true);
         if (!add_point_to_table)
@@ -488,6 +506,8 @@ void MGF::TestAddZTableRecursive(int layer_idx, double rho_test, double z_spacin
         int i = lm.FindLayer(z_tests_l1[jj]);
         int m = lm.FindLayer(z_tests_l1[jj]);
         smgf.SetLayers(i, m);
+        this->i = i;
+        this->m = m;
         bool is_Midpoint_Correct = IsMidpointCorrect(rho_test, z_tests_l1[jj], z_tests_l1[jj], s.adaptive_threshold, false);
 
         if (!is_Midpoint_Correct)
@@ -1204,8 +1224,11 @@ void MGF::ComputeMGF_Interpolation_withZ(double rho, double z, double zp, std::a
     std::vector<double> z_stencil;
     std::vector<double> zp_stencil;
 
-    GetStencilZ(z, z_idx_stencil, z_stencil);
-    GetStencilZ(zp, zp_idx_stencil, zp_stencil);
+    // The layer IDs are already known from SetLayers(). Do not infer them
+    // from z here: an interface coordinate can belong to either adjacent
+    // AIM grid block. i is the source layer and m is the observation layer.
+    GetStencilZ(z, m, z_idx_stencil, z_stencil);
+    GetStencilZ(zp, i, zp_idx_stencil, zp_stencil);
 
     // Get interpolation points for rho
     std::vector<int> cols = GetColumns(rho);
@@ -1434,10 +1457,8 @@ void MGF::TabulateMGF(std::vector<std::vector<table_entry<N>>> &table, bool curl
     {
 #pragma omp single
         {
-            std::printf("\n[OMP] num_threads=%d, max_threads=%d\n",
-                        omp_get_num_threads(), omp_get_max_threads());
-            std::printf("[OMP] L=%d, nActive=%d, onlyLayer=%d, totalRows=%d, R=%d\n",
-                        L, nActive, onlyLayer, totalRows, R);
+            PrintOpenMPTableInfo(omp_get_num_threads(), omp_get_max_threads(),
+                                 L, nActive, onlyLayer, totalRows, R);
         }
 
         // ============================================================
@@ -1990,7 +2011,7 @@ int MGF::GetRow(double z, double zp)
 }
 
 /*! \brief Function to retrieve the interpolation stencil for a given z and zp.*/
-void MGF::GetStencilZ(double z, std::vector<int> &z_idx_stencil, std::vector<double> &z_stencil)
+void MGF::GetStencilZ(double z, int layer_idx, std::vector<int> &z_idx_stencil, std::vector<double> &z_stencil)
 {
 
     if (!initialized)
@@ -1999,11 +2020,12 @@ void MGF::GetStencilZ(double z, std::vector<int> &z_idx_stencil, std::vector<dou
     }
     
 
-    // ====== Locate the index of the z-node nearest to z ======
+    if (layer_idx < 0 || layer_idx >= static_cast<int>(lm.z_nodes.size()))
+        throw std::out_of_range("[ERROR] MGF::GetStencilZ(): Layer index is out of bounds.");
 
-    int layer_idx = lm.FindLayer(z);
-
-    std::vector<double> nodes = lm.z_nodes[layer_idx];
+    const std::vector<double> &nodes = lm.z_nodes[layer_idx];
+    if (nodes.empty())
+        throw std::logic_error("[ERROR] MGF::GetStencilZ(): The selected layer has no z interpolation nodes.");
 
     if (nodes.size() < s.order_z + 1)
         z_stencil = nodes;

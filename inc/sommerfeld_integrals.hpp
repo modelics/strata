@@ -38,6 +38,7 @@
 #define SI_H
 
 
+#include <algorithm>
 #include <complex>
 #include <vector>
 #include <cmath>
@@ -158,9 +159,13 @@ inline std::complex<double> IntegrateSpectralFarField(SpectralMGF &smgf, double 
 	// For small rho the Bessel oscillations are so slow that partition-extrapolation
 	// would place its partitions at enormous krho, where the tail integrand underflows
 	// (and the Levin-Sidi remainder reciprocal then overflows to Inf -> NaN). When rho is
-	// below ~1% of the shortest wavelength, integrate the tail directly instead.
+	// below ~0.02% of the shortest wavelength, integrate the tail directly instead.
+	// A wider cutoff sends ordinary chip-scale rho values through Boost's infinite-
+	// interval mapping at low frequencies.  For a nearly homogeneous stack the
+	// reflected residual is tiny, so relative-error refinement then samples such
+	// large krho*rho that Amos loses accuracy during Bessel argument reduction.
 	double lambda_min = 2.0*M_PI/std::real(smgf.lm->k_max);
-	if (rho < 0.01*lambda_min)
+	if (rho < 2.0e-4*lambda_min)
 	{
 		std::complex<double> result = 0.0;
 		GaussKronrodBoost(f, a, std::numeric_limits<double>::infinity(), tol, result);
@@ -287,7 +292,10 @@ void PartExtrap(const F f, double a, double q, double tol, std::complex<double> 
 		s += u;
 		w = u; 
 		val = LevinSidi(kk-1, s, w, X, A, B);
-		if (kk > 0 && std::abs(val - old) < tol*std::abs(val))
+		// Use a mixed absolute/relative stopping criterion.  A purely relative
+		// criterion drives nearly zero reflected fields to the maximum number of
+		// partitions while trying to resolve cancellation noise.
+		if (kk > 0 && std::abs(val - old) < tol*std::max(1.0, std::abs(val)))
 			break;
 		
 		old = val;
@@ -483,7 +491,12 @@ template<class F>
 void GaussKronrodBoost(const F f, double a, double b, double tol, std::complex<double> &result)
 {
 	
-	const int order = 21, max_levels = 15;
+	const int order = 21;
+	// A nearly zero reflected MGF makes the purely relative Boost error test
+	// chase cancellation noise to the maximum depth in both finite near-field
+	// paths and infinite far-field tails.  Ten levels still allow roughly 2^10
+	// high-order panels while bounding runtime and transformed Bessel arguments.
+	const int max_levels = 10;
 	double error, multiplier = 1.0;
 
 	// Make sure the integration path is from the smaller number to the larger one, for Boost compatibility.

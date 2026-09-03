@@ -61,7 +61,14 @@ set(BUILD_EXT ${LIB_EXT}/builds)
 
 # ====== Find MKL ======
 
-set(MKL_INTERFACE lp64)
+set(STRATA_MKL_INTERFACE "lp64" CACHE STRING "MKL integer interface used by Strata")
+set_property(CACHE STRATA_MKL_INTERFACE PROPERTY STRINGS lp64 ilp64)
+if(NOT STRATA_MKL_INTERFACE STREQUAL "lp64" AND
+   NOT STRATA_MKL_INTERFACE STREQUAL "ilp64")
+    message(FATAL_ERROR "STRATA_MKL_INTERFACE must be lp64 or ilp64")
+endif()
+
+set(MKL_INTERFACE ${STRATA_MKL_INTERFACE})
 set(MKL_MPI openmpi)
 set(MKL_THREADING gnu_thread)
 
@@ -237,4 +244,3 @@ install(DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}/inc/"
 # ------ Test files ------
 
 add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/test)
-

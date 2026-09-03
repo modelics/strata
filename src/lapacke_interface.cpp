@@ -27,6 +27,7 @@
  ***************************************************************/
 
 
+#include <algorithm>
 #include <iostream>
 
 #if defined(USE_MKL)
@@ -52,6 +53,7 @@ namespace strata
 	{
 
 		ipiv.resize(m*n);
+		std::vector<lapack_int> lapack_ipiv(std::min(m, n));
 
 		int lda, matrix_layout;
 		if (row_major)
@@ -65,7 +67,8 @@ namespace strata
 			lda = m;
 		}
 
-		int info = LAPACKE_zgetrf(matrix_layout, m, n, (lapack_complex_double *) &A[0], lda, &ipiv[0]);
+		lapack_int info = LAPACKE_zgetrf(matrix_layout, m, n, (lapack_complex_double *) &A[0], lda, lapack_ipiv.data());
+		std::copy(lapack_ipiv.begin(), lapack_ipiv.end(), ipiv.begin());
 
 		return;
 
@@ -81,12 +84,13 @@ namespace strata
 		if (!row_major)
 			matrix_layout = LAPACK_COL_MAJOR;
 
-		std::vector<int> ipiv;
-		ComputeLU(A, ipiv, n, n, row_major);
-
 		int lda = n;
+		std::vector<lapack_int> ipiv(n);
 
-		int info = LAPACKE_zgetri(matrix_layout, n, (lapack_complex_double *) &A[0], lda, &ipiv[0]);
+		lapack_int info = LAPACKE_zgetrf(matrix_layout, n, n,
+										 (lapack_complex_double *) &A[0], lda, ipiv.data());
+		info = LAPACKE_zgetri(matrix_layout, n,
+								(lapack_complex_double *) &A[0], lda, ipiv.data());
 
 		return;
 
@@ -102,8 +106,9 @@ namespace strata
 		if (!row_major)
 			matrix_layout = LAPACK_COL_MAJOR;
 	
+		std::vector<lapack_int> lapack_ipiv(ipiv.begin(), ipiv.end());
 		int lda = n;
-		int info = LAPACKE_zgetri(matrix_layout, n, (lapack_complex_double *) &A[0], lda, &ipiv[0]);
+		lapack_int info = LAPACKE_zgetri(matrix_layout, n, (lapack_complex_double *) &A[0], lda, lapack_ipiv.data());
 
 		return;
 
@@ -130,9 +135,9 @@ namespace strata
 
 		std::vector<double> s (std::min(m, n));
 		double rcond = -1.0;
-		int rank;
+		lapack_int rank;
 		
-		int info = LAPACKE_zgelss(matrix_layout, m, n, nrhs, (lapack_complex_double *) &A[0], lda, (lapack_complex_double *) &b[0], ldb, &s[0], rcond, &rank);
+		lapack_int info = LAPACKE_zgelss(matrix_layout, m, n, nrhs, (lapack_complex_double *) &A[0], lda, (lapack_complex_double *) &b[0], ldb, &s[0], rcond, &rank);
 
 		if (info < 0)
 			std::cout << "[WARNING] SolveLeastSquares(): LAPACKE_zgelss returned " << info << "; parameter " << std::abs(info) << " had an illegal value." << std::endl;
@@ -162,7 +167,7 @@ namespace strata
 		std::vector<double> superb (std::min(m, n));
 		s.resize(std::min(m, n));
 
-		int info = LAPACKE_zgesvd(matrix_layout, 'A', 'A', m, n, 
+		lapack_int info = LAPACKE_zgesvd(matrix_layout, 'A', 'A', m, n,
 								  (lapack_complex_double *) &A[0], lda, &s[0],
 								  (lapack_complex_double *) &u[0], ldu, 
 								  (lapack_complex_double *) &vt[0], ldvt, &superb[0]);
@@ -190,7 +195,7 @@ namespace strata
 		std::complex<double> *vl = NULL, *vr = NULL;	
 		w.resize(n);
 
-		int info = LAPACKE_zgeev(matrix_layout, 'N', 'N', n, (lapack_complex_double *) &A[0], (lapack_int) lda, (lapack_complex_double *) &w[0], (lapack_complex_double *) vl, ldvl, (lapack_complex_double *) vr, ldvr);
+		lapack_int info = LAPACKE_zgeev(matrix_layout, 'N', 'N', n, (lapack_complex_double *) &A[0], (lapack_int) lda, (lapack_complex_double *) &w[0], (lapack_complex_double *) vl, ldvl, (lapack_complex_double *) vr, ldvr);
 
 		if (info < 0)
 			std::cout << "[WARNING] ComputeEigenvalues(): LAPACKE_zgeev returned " << info << "; parameter " << std::abs(info) << " had an illegal value." << std::endl;
@@ -243,6 +248,7 @@ namespace strata
 	{
 
 		ipiv.resize(m*n);
+		std::vector<lapack_int> lapack_ipiv(std::min(m, n));
 
 		int lda, matrix_layout;
 		if (row_major)
@@ -256,7 +262,8 @@ namespace strata
 			lda = m;
 		}
 
-		int info = LAPACKE_dgetrf(matrix_layout, m, n, &A[0], lda, &ipiv[0]);
+		lapack_int info = LAPACKE_dgetrf(matrix_layout, m, n, &A[0], lda, lapack_ipiv.data());
+		std::copy(lapack_ipiv.begin(), lapack_ipiv.end(), ipiv.begin());
 
 		return;
 
@@ -272,12 +279,11 @@ namespace strata
 		if (!row_major)
 			matrix_layout = LAPACK_COL_MAJOR;
 
-		std::vector<int> ipiv;
-		ComputeLU(A, ipiv, n, n, row_major);
-
 		int lda = n;
+		std::vector<lapack_int> ipiv(n);
 
-		int info = LAPACKE_dgetri(matrix_layout, n, &A[0], lda, &ipiv[0]);
+		lapack_int info = LAPACKE_dgetrf(matrix_layout, n, n, &A[0], lda, ipiv.data());
+		info = LAPACKE_dgetri(matrix_layout, n, &A[0], lda, ipiv.data());
 
 		return;
 
@@ -313,5 +319,4 @@ namespace strata
 	}
 
 }
-
 
