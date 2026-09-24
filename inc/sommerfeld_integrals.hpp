@@ -43,6 +43,7 @@
 #include <cmath>
 #include <iostream>
 #include <string>
+#include <stdexcept>
 
 #include <boost/math/quadrature/tanh_sinh.hpp>
 #include <boost/math/quadrature/exp_sinh.hpp> 
@@ -155,15 +156,13 @@ inline std::complex<double> IntegrateSpectralFarField(SpectralMGF &smgf, double 
 			return SommerfeldIntegrand(smgf, rho, krho, component, order, curl);
 		};
 
-	// For small rho the Bessel oscillations are so slow that partition-extrapolation
-	// would place its partitions at enormous krho, where the tail integrand underflows
-	// (and the Levin-Sidi remainder reciprocal then overflows to Inf -> NaN). When rho is
-	// below ~1% of the shortest wavelength, integrate the tail directly instead.
-	double lambda_min = 2.0*M_PI/std::real(smgf.lm->k_max);
-	if (rho < 0.01*lambda_min)
+	// Use direct infinite-domain quadrature only when rho is nearly zero.
+	if (rho < 1.0e-15)
 	{
 		std::complex<double> result = 0.0;
 		GaussKronrodBoost(f, a, std::numeric_limits<double>::infinity(), tol, result);
+		if (!std::isfinite(std::abs(result)))
+			throw std::runtime_error("IntegrateSpectralFarField(): non-finite direct integral");
 		return result;
 	};
 	
@@ -192,6 +191,8 @@ inline std::complex<double> IntegrateSpectralFarField(SpectralMGF &smgf, double 
 	// if (!std::isfinite(std::abs(result)))
 		// result = 0.0;
 
+	if (!std::isfinite(std::abs(result)) || !std::isfinite(std::abs(bridge)))
+		throw std::runtime_error("IntegrateSpectralFarField(): non-finite partition integral");
 	return result + bridge;
 
 }
@@ -277,16 +278,18 @@ void PartExtrap(const F f, double a, double q, double tol, std::complex<double> 
 		X[kk] = X[kk-1] + q;
 		TanhSinh(f, X[kk-1], X[kk], eps, u);
 
-		// Skip partitions whose value is zero or subnormal: they contribute nothing
-		// meaningful to the tail sum, and feeding a subnormal to the Levin-Sidi
-		// remainder estimate (B[k] = 1.0/u) would overflow to Inf and poison the result.
+		if (!std::isfinite(std::abs(u)))
+			throw std::runtime_error("PartExtrap(): non-finite partition integral");
+		// Stop when the tail underflows; skipping would leave a gap in A and B.
 		if (std::abs(u) < std::numeric_limits<double>::min())
-			continue;
+			break;
 
 		// Execute extrapolation		
 		s += u;
 		w = u; 
 		val = LevinSidi(kk-1, s, w, X, A, B);
+		if (!std::isfinite(std::abs(val)))
+			throw std::runtime_error("PartExtrap(): non-finite extrapolation");
 		if (kk > 0 && std::abs(val - old) < tol*std::abs(val))
 			break;
 		
