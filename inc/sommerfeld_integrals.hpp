@@ -111,6 +111,14 @@ void ExpSinhBoost(const F f, double a, double tol, std::complex<double> &result)
 // ==================================================================================
 // Computational drivers
 // ==================================================================================
+inline void CheckComplexResultForInfOrNaN(const std::complex<double> &value, const std::string &calculation_stage)
+{
+	if (std::isnan(value.real()) || std::isnan(value.imag()))
+		throw std::runtime_error("NaN values detected in " + calculation_stage);
+	if (std::isinf(std::abs(value)))
+		throw std::runtime_error("Inf values detected in the magnitude of " + calculation_stage);
+}
+
 
 /*! \brief Function to assemble the integrand for a given component of the MGF.*/
 inline std::complex<double> SommerfeldIntegrand(SpectralMGF &smgf, double rho, std::complex<double> krho, int component, int order, bool curl)
@@ -161,8 +169,7 @@ inline std::complex<double> IntegrateSpectralFarField(SpectralMGF &smgf, double 
 	{
 		std::complex<double> result = 0.0;
 		GaussKronrodBoost(f, a, std::numeric_limits<double>::infinity(), tol, result);
-		if (!std::isfinite(std::abs(result)))
-			throw std::runtime_error("IntegrateSpectralFarField(): non-finite direct integral");
+		CheckComplexResultForInfOrNaN(result, "the direct Gauss-Kronrod integration result");
 		return result;
 	};
 	
@@ -191,8 +198,8 @@ inline std::complex<double> IntegrateSpectralFarField(SpectralMGF &smgf, double 
 	// if (!std::isfinite(std::abs(result)))
 		// result = 0.0;
 
-	if (!std::isfinite(std::abs(result)) || !std::isfinite(std::abs(bridge)))
-		throw std::runtime_error("IntegrateSpectralFarField(): non-finite partition integral");
+	CheckComplexResultForInfOrNaN(result, "the partition-extrapolated tail result");
+	CheckComplexResultForInfOrNaN(bridge, "the Gauss-Kronrod bridge integration result");
 	return result + bridge;
 
 }
@@ -278,8 +285,7 @@ void PartExtrap(const F f, double a, double q, double tol, std::complex<double> 
 		X[kk] = X[kk-1] + q;
 		TanhSinh(f, X[kk-1], X[kk], eps, u);
 
-		if (!std::isfinite(std::abs(u)))
-			throw std::runtime_error("PartExtrap(): non-finite partition integral");
+		CheckComplexResultForInfOrNaN(u, "the TanhSinh partition integration result");
 		// Stop when the tail underflows; skipping would leave a gap in A and B.
 		if (std::abs(u) < std::numeric_limits<double>::min())
 			break;
@@ -288,8 +294,7 @@ void PartExtrap(const F f, double a, double q, double tol, std::complex<double> 
 		s += u;
 		w = u; 
 		val = LevinSidi(kk-1, s, w, X, A, B);
-		if (!std::isfinite(std::abs(val)))
-			throw std::runtime_error("PartExtrap(): non-finite extrapolation");
+		CheckComplexResultForInfOrNaN(val, "the Levin-Sidi extrapolation result");
 		if (kk > 0 && std::abs(val - old) < tol*std::abs(val))
 			break;
 		
