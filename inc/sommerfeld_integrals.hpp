@@ -286,19 +286,7 @@ void PartExtrap(const F f, double a, double q, double tol, std::complex<double> 
 		// Execute extrapolation		
 		s += u;
 		w = u; 
-		std::complex<double> extrapolated = LevinSidi(kk-1, s, w, X, A, B);
-
-		// Skipping zero/subnormal partitions above does not rule out an overflow inside LevinSidi():
-		// B[k] = 1/u and A[k] = s/u are still huge for a tiny but normal u, and the recursion takes
-		// differences of them. A non-finite extrapolation means the remaining tail is negligible:
-		// keep the last extrapolated value, or the partial sum if there is none yet.
-		if (!std::isfinite(extrapolated.real()) || !std::isfinite(extrapolated.imag()))
-		{
-			val = (kk > 1 && std::abs(old) < 1.0e299) ? old : s;
-			break;
-		}
-
-		val = extrapolated;
+		val = LevinSidi(kk-1, s, w, X, A, B);
 		if (kk > 0 && std::abs(val - old) < tol*std::abs(val))
 			break;
 		
