@@ -637,6 +637,11 @@ int LayerManager::FindLayer(double z)
 	if (z < layers.back().zmin - tol)
 		return layers.size();
 
+	// The point is at the top interface of the top layer. Without this check the loop below
+	// falls through to the bottom layer.
+	if (std::abs(layers[0].zmax - z) <= tol)
+		return 0;
+
 	for (int ii = 0; ii < layers.size(); ii++)
 	{
 		if (layers[ii].zmax - z > tol && z - layers[ii].zmin > tol)
